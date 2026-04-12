@@ -14,6 +14,12 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
+      {/* Classification marking */}
+      <footer className="h-6 bg-sra-sidebar border-t border-sra-border flex items-center justify-center shrink-0">
+        <span className="text-[10px] font-semibold tracking-widest text-sra-muted uppercase">
+          OFFICIAL
+        </span>
+      </footer>
     </div>
   );
 }
