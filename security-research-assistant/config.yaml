@@ -1,0 +1,22 @@
+# Security Research Assistant — Default Configuration
+# Environment variables with SRA_ prefix override these values.
+
+ollama:
+  base_url: "http://localhost:11434"
+  model: "mistral:7b-instruct-v0.3-q4_K_M"
+  embed_model: "nomic-embed-text"
+
+storage:
+  chroma_path: "./data/vectordb"
+  sqlite_path: "./data/sqlite/sra.db"
+
+app:
+  log_level: "INFO"
+  host: "127.0.0.1"
+  port: 8000
+
+rag:
+  chunk_size: 512
+  chunk_overlap: 50
+  top_k: 10
+  max_context_tokens: 4096

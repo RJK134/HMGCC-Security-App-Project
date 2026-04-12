@@ -1,45 +1,54 @@
-"""Custom exception hierarchy for Security Research Assistant."""
+"""Custom exception hierarchy for Security Research Assistant.
+
+All application-specific exceptions inherit from SRAError.
+Each carries an optional details dict for structured error context.
+"""
 
 
 class SRAError(Exception):
     """Base exception for all SRA errors."""
+
+    def __init__(self, message: str, details: dict | None = None) -> None:
+        super().__init__(message)
+        self.message = message
+        self.details = details or {}
 
 
 class ConfigurationError(SRAError):
     """Raised when configuration is invalid or missing."""
 
 
-class IngestionError(SRAError):
-    """Raised when document ingestion fails."""
-
-
-class ParsingError(IngestionError):
-    """Raised when a document cannot be parsed."""
+class DocumentProcessingError(SRAError):
+    """Raised when document ingestion or parsing fails."""
 
 
 class EmbeddingError(SRAError):
     """Raised when embedding generation fails."""
 
 
-class QueryError(SRAError):
-    """Raised when a RAG query fails."""
+class LLMConnectionError(SRAError):
+    """Raised when Ollama is unreachable or a model is unavailable."""
 
 
-class LLMError(SRAError):
-    """Raised when the local LLM is unavailable or returns an error."""
+class LLMInferenceError(SRAError):
+    """Raised when the LLM returns an error during generation."""
+
+
+class VectorStoreError(SRAError):
+    """Raised when ChromaDB operations fail."""
+
+
+class ConversationNotFoundError(SRAError):
+    """Raised when a requested conversation does not exist."""
+
+
+class ProjectNotFoundError(SRAError):
+    """Raised when a requested project does not exist."""
 
 
 class ValidationError(SRAError):
     """Raised when response validation fails."""
 
 
-class ConversationError(SRAError):
-    """Raised when conversation operations fail."""
-
-
 class DatabaseError(SRAError):
-    """Raised when database operations fail."""
-
-
-class ReportError(SRAError):
-    """Raised when report generation fails."""
+    """Raised when SQLite database operations fail."""
