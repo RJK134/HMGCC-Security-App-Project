@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sra-bg: #ffffff;
+  --sra-sidebar: #f8fafc;
+  --sra-card: #ffffff;
+  --sra-border: #e2e8f0;
+  --sra-text: #0f172a;
+  --sra-muted: #64748b;
+}
+
+.dark {
+  --sra-bg: #0f172a;
+  --sra-sidebar: #1e293b;
+  --sra-card: #1e293b;
+  --sra-border: #334155;
+  --sra-text: #f1f5f9;
+  --sra-muted: #94a3b8;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
