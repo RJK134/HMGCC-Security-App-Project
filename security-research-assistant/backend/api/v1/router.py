@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from backend.api.v1.architecture import router as architecture_router
+from backend.api.v1.maintenance import router as maintenance_router
 from backend.api.v1.profile import router as profile_router
 from backend.api.v1.reports import router as reports_router
 from backend.api.v1.conversations import router as conversations_router
@@ -18,3 +19,4 @@ api_v1_router.include_router(conversations_router)
 api_v1_router.include_router(architecture_router)
 api_v1_router.include_router(reports_router)
 api_v1_router.include_router(profile_router)
+api_v1_router.include_router(maintenance_router)
