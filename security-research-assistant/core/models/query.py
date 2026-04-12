@@ -32,3 +32,4 @@ class QueryResponse(BaseModel):
     confidence: ConfidenceResult
     sources_used: int = 0
     retrieval_scores: dict = Field(default_factory=dict)
+    suggested_queries: list[str] = Field(default_factory=list)

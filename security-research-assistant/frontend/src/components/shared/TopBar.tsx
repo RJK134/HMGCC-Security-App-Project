@@ -3,6 +3,7 @@
 import { Moon, PanelLeftClose, PanelLeftOpen, Shield, Sun } from "lucide-react";
 import { useAppStore } from "../../stores/appStore";
 import { ProjectSelector } from "../projects/ProjectSelector";
+import { NotificationBell } from "./NotificationBell";
 import { StatusIndicator } from "./StatusIndicator";
 
 export function TopBar() {
@@ -34,6 +35,7 @@ export function TopBar() {
 
       {/* Right side */}
       <div className="flex items-center gap-3">
+        <NotificationBell />
         <StatusIndicator />
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
