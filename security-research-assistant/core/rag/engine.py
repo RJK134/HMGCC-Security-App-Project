@@ -14,6 +14,10 @@ from core.rag.reranker import Reranker
 from core.rag.response_parser import ResponseParser
 from core.rag.search_models import SearchResult
 from core.rag.vector_search import VectorSearcher
+from core.validation.confidence import ConfidenceScorer
+from core.validation.cross_reference import CrossReferencer
+from core.validation.hallucination import HallucinationDetector
+from core.validation.pipeline import ValidationPipeline
 
 log = get_logger(__name__)
 
@@ -42,6 +46,7 @@ class RAGEngine:
         response_parser: ResponseParser,
         top_k_retrieval: int = 20,
         top_k_final: int = 5,
+        validation_pipeline: ValidationPipeline | None = None,
     ) -> None:
         self._vector = vector_searcher
         self._keyword = keyword_searcher
@@ -51,6 +56,7 @@ class RAGEngine:
         self._parser = response_parser
         self._top_k_retrieval = top_k_retrieval
         self._top_k_final = top_k_final
+        self._validation = validation_pipeline or self._build_default_validation()
 
     def query(
         self,
@@ -106,16 +112,15 @@ class RAGEngine:
         # 6. Parse
         parsed = self._parser.parse_response(response_text, reranked)
 
-        # 7. Build response (confidence scoring deferred to Sprint 2.3)
-        confidence = ConfidenceResult(
-            score=self._estimate_confidence(parsed.citations, reranked),
-            explanation=self._confidence_explanation(parsed.citations, reranked),
+        # 7. Validate — every response passes through the validation pipeline
+        validated = self._validation.validate_response(
+            parsed.answer_text, reranked, parsed.claims,
         )
 
         return QueryResponse(
-            answer=parsed.answer_text,
+            answer=validated.validated_answer,
             citations=parsed.citations,
-            confidence=confidence,
+            confidence=validated.confidence,
             sources_used=len(parsed.citations),
             retrieval_scores={
                 "vector_results": len(vector_results),
@@ -176,8 +181,11 @@ class RAGEngine:
             yield {"type": "error", "data": str(e)}
             return
 
-        # Parse the complete response
+        # Parse and validate the complete response
         parsed = self._parser.parse_response(full_response, reranked)
+        validated = self._validation.validate_response(
+            parsed.answer_text, reranked, parsed.claims,
+        )
 
         yield {
             "type": "done",
@@ -190,45 +198,30 @@ class RAGEngine:
                     "fused_results": len(fused),
                     "reranked_results": len(reranked),
                 },
-                "confidence": self._estimate_confidence(parsed.citations, reranked),
+                "confidence": validated.confidence.model_dump(mode="json"),
+                "flagged_claims": [
+                    item.model_dump(mode="json")
+                    for item in validated.hallucination_report.flagged_items
+                ],
             },
         }
 
-    def _estimate_confidence(
-        self, citations: list[Citation], results: list[SearchResult]
-    ) -> float:
-        """Basic confidence estimate based on source count and quality.
+        # Send validation report as separate event
+        yield {
+            "type": "validation",
+            "data": {
+                "confidence": validated.confidence.model_dump(mode="json"),
+                "hallucination_report": validated.hallucination_report.model_dump(mode="json"),
+                "cross_reference_report": validated.cross_reference_report.model_dump(mode="json"),
+            },
+        }
 
-        Full confidence scoring is built in Sprint 2.3.
-        """
-        if not citations and not results:
-            return 0.0
-        if not results:
-            return 10.0
+    def _build_default_validation(self) -> ValidationPipeline:
+        """Build a default validation pipeline."""
+        from core.validation.source_tier import SourceTierClassifier
+        return ValidationPipeline(
+            confidence_scorer=ConfidenceScorer(SourceTierClassifier()),
+            hallucination_detector=HallucinationDetector(),
+            cross_referencer=CrossReferencer(),
+        )
 
-        score = min(len(citations) * 15, 50)  # Up to 50 from citation count
-
-        # Boost for high-tier sources
-        for r in results:
-            tier = r.metadata.get("source_tier", "")
-            if "tier_1" in tier:
-                score += 10
-            elif "tier_2" in tier:
-                score += 5
-
-        return min(score, 100.0)
-
-    def _confidence_explanation(
-        self, citations: list[Citation], results: list[SearchResult]
-    ) -> str:
-        """Generate a human-readable confidence explanation."""
-        if not citations:
-            return "No sources cited in response."
-        parts = [f"Based on {len(citations)} cited source(s)."]
-        tier_counts: dict[str, int] = {}
-        for r in results:
-            tier = r.metadata.get("source_tier", "unknown")
-            tier_counts[tier] = tier_counts.get(tier, 0) + 1
-        if tier_counts:
-            parts.append("Source tiers: " + ", ".join(f"{k}: {v}" for k, v in tier_counts.items()))
-        return " ".join(parts)

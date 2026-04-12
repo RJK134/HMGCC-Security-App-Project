@@ -147,5 +147,5 @@ class TestRAGEngine:
             conversation_summary="We discussed GPIO pins.",
             pinned_facts=["Main CPU is STM32F407"],
         )
-        # Should not crash, and the LLM was called with enriched context
-        assert response.answer == "Response text."
+        # Should not crash; answer starts with original text (validation appends footer)
+        assert "Response text." in response.answer
