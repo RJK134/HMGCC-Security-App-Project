@@ -51,6 +51,12 @@ class ResponseParser:
             ParsedResponse with mapped citations and extracted claims.
         """
         citations = self._extract_citations(llm_response, search_results)
+
+        # Fallback: if LLM didn't include [Source:] markers, generate citations
+        # directly from search results so responses always have source attribution
+        if not citations and search_results:
+            citations = self._generate_fallback_citations(search_results)
+
         claims = self._extract_claims(llm_response)
 
         return ParsedResponse(
@@ -119,6 +125,45 @@ class ResponseParser:
                     best_score = score
 
         return best
+
+    def _generate_fallback_citations(
+        self, search_results: list[SearchResult], max_citations: int = 5
+    ) -> list[Citation]:
+        """Generate citations directly from search results when LLM omits markers.
+
+        This ensures responses always have source attribution even when the LLM
+        doesn't follow the [Source: ...] instruction format.
+        """
+        citations: list[Citation] = []
+        seen_docs: set[str] = set()
+
+        for result in search_results[:max_citations]:
+            doc_id_str = result.metadata.get("document_id", "")
+            filename = result.metadata.get("filename", "unknown")
+            page_num = result.metadata.get("page_number")
+
+            # Deduplicate by document + page
+            key = f"{doc_id_str}:{page_num}"
+            if key in seen_docs:
+                continue
+            seen_docs.add(key)
+
+            try:
+                doc_id = UUID(doc_id_str) if doc_id_str else UUID(int=0)
+            except ValueError:
+                doc_id = UUID(int=0)
+
+            citations.append(Citation(
+                document_id=doc_id,
+                document_name=filename,
+                page_number=int(page_num) if page_num else None,
+                chunk_id=result.chunk_id,
+                relevance_score=result.score,
+                excerpt=result.content[:150],
+            ))
+
+        log.info("fallback_citations_generated", count=len(citations))
+        return citations
 
     def _extract_claims(self, text: str) -> list[ExtractedClaim]:
         """Extract factual claims from the response text.

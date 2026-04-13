@@ -98,6 +98,35 @@ class RAGEngine:
             request.question, fused, top_k=self._top_k_final,
         )
 
+        # 3.5. Off-topic detection — if no results are sufficiently relevant,
+        # return early without calling the LLM to prevent fabricated answers.
+        # Use original vector search scores (0-1 similarity) not RRF scores (much smaller).
+        max_relevance = max(
+            (r.score for r in vector_results), default=0.0
+        ) if vector_results else 0.0
+        if max_relevance < 0.25 or not reranked:
+            log.info("query_off_topic", question=request.question[:80], max_relevance=max_relevance)
+            return QueryResponse(
+                answer="This question does not appear to relate to the documents in your "
+                       "current project. Try importing relevant documents into the Library first, "
+                       "or rephrase your question to match topics covered in your sources.",
+                citations=[],
+                confidence=ConfidenceResult(
+                    score=0.0,
+                    explanation="No relevant sources found for this question.",
+                    flagged_claims=[],
+                    alternative_interpretations=[],
+                ),
+                sources_used=0,
+                retrieval_scores={
+                    "vector_results": len(vector_results),
+                    "keyword_results": len(keyword_results),
+                    "fused_results": len(fused),
+                    "reranked_results": len(reranked),
+                    "max_relevance": max_relevance,
+                },
+            )
+
         # 4. Build context
         system_prompt, user_prompt = self._context.build_context(
             request.question, reranked, conversation_summary, pinned_facts,

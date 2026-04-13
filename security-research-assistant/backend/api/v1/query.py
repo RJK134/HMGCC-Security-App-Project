@@ -13,6 +13,7 @@ from core.conversation.memory import MemoryManager
 from core.conversation.summariser import ConversationSummariser
 from core.database.connection import DatabaseManager
 from core.ingest.embedder import Embedder
+from core.profile.tracker import PreferenceTracker
 from core.logging import get_logger
 from core.models.conversation import MessageRole
 from core.models.query import QueryRequest, QueryResponse
@@ -116,6 +117,12 @@ def query_endpoint(
             confidence_score=response.confidence.score,
         )
 
+        # Track query for user profiling
+        try:
+            PreferenceTracker(db).track_query(request.question, response, request.project_id)
+        except Exception:
+            pass  # Don't fail the query if tracking fails
+
         result = response.model_dump(mode="json")
         result["conversation_id"] = str(conversation_id)
         return result
@@ -170,6 +177,12 @@ def query_simple(
         citations=response.citations,
         confidence_score=response.confidence.score,
     )
+
+    # Track query for user profiling
+    try:
+        PreferenceTracker(db).track_query(request.question, response, request.project_id)
+    except Exception:
+        pass
 
     result = response.model_dump(mode="json")
     result["conversation_id"] = str(conversation_id)

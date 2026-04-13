@@ -59,10 +59,15 @@ class ConfidenceScorer:
 
         total_score = min(coverage_score + quality_score + support_score + consistency_score, 100.0)
 
+        # Cap score if no search results are sufficiently relevant (off-topic detection)
+        max_relevance = max((r.score for r in search_results), default=0.0)
+        if max_relevance < 0.3:
+            total_score = min(total_score, 25.0)
+
         # Build explanation
         explanation_parts = [
             f"Confidence: {total_score:.0f}/100.",
-            f"Based on {source_count} source chunk(s) from {doc_count} document(s).",
+            f"Based on {source_count} relevant passage(s) from {doc_count} document(s).",
         ]
 
         if tier_breakdown:
@@ -95,15 +100,24 @@ class ConfidenceScorer:
         )
 
     def _source_coverage(self, results: list[SearchResult]) -> tuple[float, int, int]:
-        """Calculate source coverage sub-score (0-40)."""
+        """Calculate source coverage sub-score (0-40).
+
+        Only counts sources with relevance score >= 0.3 to prevent
+        off-topic queries from scoring high on coverage.
+        """
         if not results:
             return 0.0, 0, 0
 
-        source_count = len(results)
-        doc_ids = {r.metadata.get("document_id", "") for r in results}
+        # Filter to only sufficiently relevant results
+        relevant = [r for r in results if r.score >= 0.3]
+        source_count = len(relevant)
+        doc_ids = {r.metadata.get("document_id", "") for r in relevant}
         doc_count = len(doc_ids - {""})
 
-        # Base: 10 per source, max 30
+        if source_count == 0:
+            return 0.0, len(results), 0
+
+        # Base: 10 per relevant source, max 30
         base = min(source_count * 10, 30)
 
         # Bonus 10 for multi-document coverage
@@ -140,7 +154,7 @@ class ConfidenceScorer:
     def _claim_support(self, claims: list[ExtractedClaim]) -> tuple[float, int, int]:
         """Calculate claim support sub-score (0-20)."""
         if not claims:
-            return 20.0, 0, 0  # No claims = nothing to verify = full marks
+            return 0.0, 0, 0  # No verifiable claims = no evidence of correctness
 
         supported = sum(1 for c in claims if c.supporting_source)
         total = len(claims)
