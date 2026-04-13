@@ -32,13 +32,22 @@ export function ProjectSelector() {
 
   const current = projects?.find((p) => p.id === currentProjectId);
 
+  const [createError, setCreateError] = useState("");
+
   const handleCreate = async () => {
     if (!newName.trim()) return;
-    const project = await createProject.mutateAsync({ name: newName.trim() });
-    setCurrentProject(project.id);
-    setNewName("");
-    setShowCreate(false);
-    setOpen(false);
+    setCreateError("");
+    try {
+      const project = await createProject.mutateAsync({ name: newName.trim() });
+      setCurrentProject(project.id);
+      setNewName("");
+      setShowCreate(false);
+      setOpen(false);
+    } catch (err) {
+      setCreateError(
+        err instanceof Error ? err.message : "Failed to create project. Check backend connection."
+      );
+    }
   };
 
   return (
@@ -89,11 +98,14 @@ export function ProjectSelector() {
                 className="w-full text-sm px-2 py-1 rounded border border-sra-border bg-transparent focus:outline-none focus:ring-1 focus:ring-sra-accent"
                 autoFocus
               />
+              {createError && (
+                <p className="text-[10px] text-red-500 mt-1">{createError}</p>
+              )}
               <div className="flex gap-2 mt-1">
-                <button onClick={handleCreate} className="text-xs text-sra-accent hover:underline">
-                  Create
+                <button onClick={handleCreate} disabled={createProject.isPending} className="text-xs text-sra-accent hover:underline disabled:opacity-50">
+                  {createProject.isPending ? "Creating..." : "Create"}
                 </button>
-                <button onClick={() => setShowCreate(false)} className="text-xs text-sra-muted hover:underline">
+                <button onClick={() => { setShowCreate(false); setCreateError(""); }} className="text-xs text-sra-muted hover:underline">
                   Cancel
                 </button>
               </div>

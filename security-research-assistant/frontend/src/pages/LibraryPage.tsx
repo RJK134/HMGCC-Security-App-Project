@@ -23,6 +23,7 @@ export function LibraryPage() {
   const [sortBy, setSortBy] = useState<SortBy>("date");
 
   const documents: DocumentMetadata[] = data?.documents ?? [];
+  const totalDocuments: number = (data as Record<string, unknown>)?.total as number ?? documents.length;
 
   const filtered = useMemo(() => {
     let result = documents;
@@ -144,7 +145,7 @@ export function LibraryPage() {
 
       {/* Document count */}
       <p className="text-xs text-sra-muted">
-        Showing {filtered.length} of {documents.length} documents
+        Showing {filtered.length} of {totalDocuments} documents
       </p>
 
       {/* Documents view */}

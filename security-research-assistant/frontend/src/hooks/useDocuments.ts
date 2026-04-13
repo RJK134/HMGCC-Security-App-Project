@@ -51,6 +51,9 @@ export function useUpdateDocumentTier() {
   return useMutation({
     mutationFn: ({ id, tier }: { id: string; tier: SourceTier }) =>
       api.updateDocumentTier(id, tier),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["documents"] }),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["documents"] });
+      qc.invalidateQueries({ queryKey: ["document", vars.id] });
+    },
   });
 }

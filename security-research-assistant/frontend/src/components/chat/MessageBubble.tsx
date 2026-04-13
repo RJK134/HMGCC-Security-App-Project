@@ -1,5 +1,6 @@
 /** Individual chat message — user or assistant with markdown, citations, confidence. */
 
+import { Pin } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Citation, ConfidenceResult, Message } from "../../types";
@@ -14,6 +15,7 @@ interface Props {
   flaggedClaims?: string[];
   alternatives?: string[];
   onCitationClick?: (citation: Citation) => void;
+  onPin?: (content: string, citations: Citation[]) => void;
   isStreaming?: boolean;
 }
 
@@ -23,6 +25,7 @@ export function MessageBubble({
   flaggedClaims,
   alternatives,
   onCitationClick,
+  onPin,
   isStreaming,
 }: Props) {
   const isUser = message.role === "user";
@@ -86,10 +89,19 @@ export function MessageBubble({
           <AlternativePanel alternatives={alternatives} />
         )}
 
-        {/* Timestamp */}
-        <span className="text-[10px] text-sra-muted opacity-0 group-hover:opacity-60 transition-opacity mt-1 block">
-          {ts}
-        </span>
+        {/* Footer: timestamp + pin */}
+        <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-60 transition-opacity">
+          <span className="text-[10px] text-sra-muted">{ts}</span>
+          {onPin && !isStreaming && (
+            <button
+              onClick={() => onPin(message.content, message.citations)}
+              className="text-sra-muted hover:text-sra-accent transition-colors"
+              title="Pin this finding"
+            >
+              <Pin size={12} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
