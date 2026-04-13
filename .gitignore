@@ -28,8 +28,16 @@ frontend/dist/
 data/vectordb/*
 data/sqlite/*
 data/models/*
+**/data/vectordb/*
+**/data/sqlite/*
+**/data/models/*
 !data/**/.gitkeep
+!**/data/**/.gitkeep
 *.db
+*.db-shm
+*.db-wal
+*.sqlite3
+*.bin
 
 # OS
 .DS_Store
