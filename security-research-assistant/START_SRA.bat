@@ -11,16 +11,39 @@ echo  Starting all services...
 echo.
 
 cd /d "%~dp0"
-
-set PYTHON="C:\Users\Richards XPS\AppData\Roaming\uv\python\cpython-3.13.13-windows-x86_64-none\python.exe"
 set PYTHONPATH=%~dp0
 
-:: Check Python exists
-if not exist %PYTHON% (
-    echo  [ERROR] Python not found. Please run setup first.
+:: Find Python - try uv python first, then system python
+set PYTHON=
+for /f "delims=" %%i in ('where python 2^>nul') do (
+    if not defined PYTHON set PYTHON=%%i
+)
+
+:: Check if uv's 3.13 is available (preferred)
+set UV_PYTHON=%USERPROFILE%\AppData\Roaming\uv\python\cpython-3.13.13-windows-x86_64-none\python.exe
+"%UV_PYTHON%" --version >nul 2>&1
+if %errorlevel% equ 0 (
+    set PYTHON=%UV_PYTHON%
+    echo  [OK] Found Python 3.13 via uv
+) else (
+    :: Try the shorter uv path
+    set UV_PYTHON2=%USERPROFILE%\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\python.exe
+    "%UV_PYTHON2%" --version >nul 2>&1
+    if %errorlevel% equ 0 (
+        set PYTHON=%UV_PYTHON2%
+        echo  [OK] Found Python 3.13 via uv
+    )
+)
+
+:: Verify we have Python
+if not defined PYTHON (
+    echo  [ERROR] Python not found. Install Python 3.11+ or run: uv python install 3.13
     pause
     exit /b 1
 )
+
+echo  Using: %PYTHON%
+echo.
 
 :: Check Ollama is running
 echo  [1/3] Checking Ollama...
@@ -31,8 +54,7 @@ if %errorlevel% neq 0 (
     timeout /t 5 /nobreak >nul
     curl -s http://localhost:11434/api/tags >nul 2>&1
     if %errorlevel% neq 0 (
-        echo        [WARNING] Ollama could not be started. LLM features unavailable.
-        echo        Please start Ollama manually from the system tray.
+        echo        [WARNING] Could not start Ollama. Start it from the system tray.
     ) else (
         echo        [OK] Ollama started.
     )
@@ -43,13 +65,20 @@ if %errorlevel% neq 0 (
 :: Start Backend
 echo.
 echo  [2/3] Starting backend server...
-start "SRA Backend" /min cmd /c "%PYTHON% -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload 2>&1"
+start "SRA Backend" /min cmd /c ""%PYTHON%" -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload"
 echo        Waiting for backend...
-timeout /t 6 /nobreak >nul
+timeout /t 8 /nobreak >nul
 
 curl -s http://localhost:8000/api/v1/health >nul 2>&1
 if %errorlevel% neq 0 (
-    echo        [WARNING] Backend may still be starting. Give it a moment.
+    echo        [..] Backend still starting, please wait...
+    timeout /t 5 /nobreak >nul
+    curl -s http://localhost:8000/api/v1/health >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo        [WARNING] Backend may need more time to start.
+    ) else (
+        echo        [OK] Backend running.
+    )
 ) else (
     echo        [OK] Backend running on http://localhost:8000
 )
@@ -57,25 +86,22 @@ if %errorlevel% neq 0 (
 :: Start Frontend
 echo.
 echo  [3/3] Starting frontend...
-cd frontend
-start "SRA Frontend" /min cmd /c "npm run dev 2>&1"
-cd ..
-timeout /t 4 /nobreak >nul
+start "SRA Frontend" /min cmd /c "cd /d "%~dp0frontend" && npm run dev"
+timeout /t 5 /nobreak >nul
 echo        [OK] Frontend starting on http://localhost:1420
 
 :: Open browser
 echo.
 echo  ============================================================
-echo   All services started!
-echo   Opening browser...
+echo   All services started! Opening browser...
 echo  ============================================================
 echo.
 echo   App:     http://localhost:1420
 echo   API:     http://localhost:8000/docs
 echo   Health:  http://localhost:8000/api/v1/health
 echo.
-echo   This window manages the services.
-echo   Press Ctrl+C or close this window to stop everything.
+echo   Close this window to stop monitoring.
+echo   Use STOP_SRA.bat to stop all services.
 echo  ============================================================
 echo.
 
@@ -87,6 +113,6 @@ start "" http://localhost:1420
 timeout /t 30 /nobreak >nul
 curl -s http://localhost:8000/api/v1/health >nul 2>&1
 if %errorlevel% neq 0 (
-    echo  [%time%] WARNING: Backend not responding. Check the SRA Backend window.
+    echo  [%time%] WARNING: Backend not responding.
 )
 goto loop

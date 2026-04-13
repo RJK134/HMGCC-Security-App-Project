@@ -1,7 +1,9 @@
 /** Main chat container — message list, streaming, input. */
 
-import { ArrowDown, MessageSquare } from "lucide-react";
+import { ArrowDown, FolderOpen, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { pinFact } from "../../api/client";
 import { useStreamingQuery } from "../../hooks/useStreamingQuery";
 import { useAppStore } from "../../stores/appStore";
 import type { Citation, ConfidenceResult, Message } from "../../types";
@@ -107,7 +109,21 @@ export function ChatWindow({ messages, onCitationClick, projectId, conversationI
     ? [...localMessages, streamingMsg]
     : localMessages;
 
-  // Empty state
+  const navigate = useNavigate();
+
+  const handlePin = useCallback(
+    async (content: string, citations: Citation[]) => {
+      if (!conversationId) return;
+      try {
+        await pinFact(conversationId, content, citations);
+      } catch {
+        // Silently fail — pinning is optional
+      }
+    },
+    [conversationId],
+  );
+
+  // Empty state with onboarding guidance
   if (!allMessages.length && !isStreaming) {
     return (
       <div className="flex flex-col h-full">
@@ -116,8 +132,20 @@ export function ChatWindow({ messages, onCitationClick, projectId, conversationI
           <h2 className="text-lg font-medium mb-2">Start a conversation</h2>
           <p className="text-sm text-sra-muted max-w-md">
             Ask a question about your imported documents. Responses will cite
-            their sources and include confidence scores.
+            their sources and include confidence scores (0-100).
           </p>
+          <div className="mt-4 flex flex-col gap-2 items-center">
+            <button
+              onClick={() => navigate("/library")}
+              className="flex items-center gap-2 text-xs text-sra-accent hover:underline"
+            >
+              <FolderOpen size={14} />
+              Import documents in the Library first
+            </button>
+            <p className="text-[10px] text-sra-muted">
+              Tip: Hover over responses to pin key findings. Click citations to view sources.
+            </p>
+          </div>
         </div>
         <InputArea onSend={handleSend} onCancel={cancel} isStreaming={isStreaming} />
       </div>
@@ -152,6 +180,7 @@ export function ChatWindow({ messages, onCitationClick, projectId, conversationI
               }
               flaggedClaims={isStreamMsg ? streamFlagged : undefined}
               onCitationClick={onCitationClick}
+              onPin={msg.role === "assistant" ? handlePin : undefined}
               isStreaming={isStreamMsg && isStreaming}
             />
           );

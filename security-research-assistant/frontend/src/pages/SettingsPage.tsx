@@ -36,9 +36,12 @@ export function SettingsPage() {
       {/* RAG Settings */}
       <section className="bg-sra-card border border-sra-border rounded-lg p-4">
         <h2 className="text-sm font-semibold mb-3">Retrieval Settings</h2>
+        <p className="text-[10px] text-sra-muted mb-3">These control how the AI searches your documents. Default values work well for most cases.</p>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-xs text-sra-muted block mb-1">Top-K Results</label>
+            <label className="text-xs text-sra-muted block mb-1" title="Number of document passages to retrieve per query. Higher = more thorough but slower.">
+              Top-K Results <span className="text-[9px] opacity-60">(recommended: 10)</span>
+            </label>
             <input
               type="number"
               defaultValue={10}
@@ -48,7 +51,9 @@ export function SettingsPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-sra-muted block mb-1">Chunk Size</label>
+            <label className="text-xs text-sra-muted block mb-1" title="Size of each text passage in tokens. Larger chunks provide more context but fewer fit in the AI's memory.">
+              Chunk Size <span className="text-[9px] opacity-60">(recommended: 512)</span>
+            </label>
             <input
               type="number"
               defaultValue={512}
@@ -56,7 +61,9 @@ export function SettingsPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-sra-muted block mb-1">Chunk Overlap</label>
+            <label className="text-xs text-sra-muted block mb-1" title="Words shared between adjacent chunks to preserve context at boundaries.">
+              Chunk Overlap <span className="text-[9px] opacity-60">(recommended: 50)</span>
+            </label>
             <input
               type="number"
               defaultValue={50}
@@ -64,7 +71,9 @@ export function SettingsPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-sra-muted block mb-1">Max Context Tokens</label>
+            <label className="text-xs text-sra-muted block mb-1" title="Maximum text the AI can process per query. Limited by your model's capacity.">
+              Max Context Tokens <span className="text-[9px] opacity-60">(recommended: 4096)</span>
+            </label>
             <input
               type="number"
               defaultValue={4096}

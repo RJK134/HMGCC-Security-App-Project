@@ -8,8 +8,8 @@ export function useHealth() {
   return useQuery<HealthStatus>({
     queryKey: ["health"],
     queryFn: healthCheck,
-    refetchInterval: 30_000,
-    retry: 1,
-    staleTime: 15_000,
+    refetchInterval: 10_000,
+    retry: 2,
+    staleTime: 5_000,
   });
 }
