@@ -3,6 +3,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 
 from backend.dependencies import get_db, get_ollama_client
 from core.architecture.extractor import ArchitectureExtractor
@@ -25,15 +26,41 @@ def get_architecture(
     """Get the system architecture for a project.
 
     Extracts components from documents, builds a graph, generates a summary.
+    This operation is synchronous and may take several minutes for large
+    document sets due to LLM processing.
     """
     extractor = ArchitectureExtractor(db, ollama)
     mapper = ArchitectureMapper()
     visualiser = ArchitectureVisualiser(ollama)
 
-    extraction = extractor.extract(project_id)
-    graph = mapper.build_graph(extraction)
-    summary = visualiser.generate_summary(extraction, graph)
-    graph.summary = summary
+    # Stage 1: Extract components from documents
+    try:
+        extraction = extractor.extract(project_id)
+    except Exception as e:
+        log.error("architecture_extraction_failed", error=str(e), project_id=str(project_id))
+        return JSONResponse(
+            status_code=500,
+            content={"message": f"Component extraction failed: {e}", "stage": "extraction"},
+        )
+
+    # Stage 2: Build relationship graph
+    try:
+        graph = mapper.build_graph(extraction)
+    except Exception as e:
+        log.error("architecture_mapping_failed", error=str(e), project_id=str(project_id))
+        return JSONResponse(
+            status_code=500,
+            content={"message": f"Graph building failed: {e}", "stage": "mapping"},
+        )
+
+    # Stage 3: Generate summary (non-critical — degrade gracefully)
+    try:
+        summary = visualiser.generate_summary(extraction, graph)
+        graph.summary = summary
+    except Exception as e:
+        log.warning("architecture_summary_failed", error=str(e), project_id=str(project_id))
+        summary = "Summary generation failed. See component data below."
+        graph.summary = summary
 
     return {
         "graph": visualiser.export_dict(graph),

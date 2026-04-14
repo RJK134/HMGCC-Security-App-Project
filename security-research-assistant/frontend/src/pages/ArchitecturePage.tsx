@@ -36,7 +36,8 @@ export function ArchitecturePage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || `Extraction failed (${res.status}). Ensure Ollama is running.`);
+        const stage = body.stage ? ` (during ${body.stage})` : "";
+        throw new Error(body.message || `Extraction failed (${res.status})${stage}. Ensure Ollama is running and not busy with another request.`);
       }
       const json = await res.json();
       if (!json.graph?.nodes?.length && !json.extraction?.components?.length) {
@@ -105,6 +106,18 @@ export function ArchitecturePage() {
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg p-3 text-xs text-red-700 dark:text-red-300">
           {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="bg-sra-card border border-sra-border rounded-lg p-8 text-center">
+          <Loader2 size={32} className="animate-spin mx-auto text-sra-accent mb-3" />
+          <p className="text-sm font-medium mb-1">Extracting architecture...</p>
+          <p className="text-xs text-sra-muted">
+            The LLM is analysing your documents to identify components, interfaces,
+            protocols, and software. This may take several minutes.
+          </p>
+          <p className="text-xs text-sra-muted mt-2">Do not navigate away from this page.</p>
         </div>
       )}
 

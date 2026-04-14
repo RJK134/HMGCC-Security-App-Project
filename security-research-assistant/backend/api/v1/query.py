@@ -15,7 +15,7 @@ from core.database.connection import DatabaseManager
 from core.ingest.embedder import Embedder
 from core.profile.tracker import PreferenceTracker
 from core.logging import get_logger
-from core.models.conversation import MessageRole
+from core.models.conversation import Citation, MessageRole
 from core.models.query import QueryRequest, QueryResponse
 from core.rag.context_builder import ContextBuilder
 from core.rag.engine import RAGEngine
@@ -136,10 +136,17 @@ def query_endpoint(
                     full_response += event["data"]
                     yield f"event: token\ndata: {json.dumps({'token': event['data']})}\n\n"
                 elif event["type"] == "done":
-                    # Store assistant response
+                    # Store assistant response with citations and confidence
                     try:
+                        done_data = event["data"]
+                        raw_citations = done_data.get("citations", [])
+                        citation_objs = [Citation(**c) for c in raw_citations]
+                        conf_data = done_data.get("confidence", {})
+                        conf_score = conf_data.get("score")
                         conv_manager.add_message(
                             conversation_id, MessageRole.ASSISTANT, full_response,
+                            citations=citation_objs,
+                            confidence_score=conf_score,
                         )
                     except Exception as store_err:
                         log.warning("message_store_failed", error=str(store_err))

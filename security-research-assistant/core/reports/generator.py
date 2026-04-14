@@ -1,5 +1,6 @@
 """Report generation — compile research findings into structured reports."""
 
+import re
 import time
 from uuid import UUID
 
@@ -32,6 +33,10 @@ IMPORTANT RULES:
 4. Use the actual project name "{project_name}" — do NOT invent project names.
 5. Write in clear, professional technical prose.
 Keep to approximately {target_words} words."""
+
+_CITATION_PATTERN = re.compile(
+    r"\[Source:\s*([^,\]]+?)(?:,\s*Page\s*\d+)?\s*\]", re.IGNORECASE,
+)
 
 
 class ReportGenerator:
@@ -76,7 +81,9 @@ class ReportGenerator:
 
         for heading, purpose in template:
             section_data = data.get(heading, data.get("_default", "No data available."))
-            content = self._generate_section(heading, purpose, section_data, project_name)
+            content = self._generate_section(
+                heading, purpose, section_data, project_name, data.get("_known_files", set()),
+            )
             llm_calls += 1
             sections.append(ReportSection(
                 heading=heading,
@@ -87,7 +94,10 @@ class ReportGenerator:
         # Add custom sections
         if opts.custom_sections:
             for custom in opts.custom_sections:
-                content = self._generate_section(custom, "Additional analysis", data.get("_default", ""))
+                content = self._generate_section(
+                    custom, "Additional analysis", data.get("_default", ""),
+                    project_name, data.get("_known_files", set()),
+                )
                 llm_calls += 1
                 sections.append(ReportSection(heading=custom, content=content))
 
@@ -137,34 +147,48 @@ class ReportGenerator:
             f"- {d['filename']} ({d['filetype']}, {d['source_tier']})"
             for d in docs
         )
+
+        # Track known filenames for citation validation
+        known_files: set[str] = {d["filename"].lower() for d in docs}
+        data["_known_files"] = known_files
+
         data["Appendix: Source Documents"] = doc_summary or "No documents imported."
         data["Source Bibliography"] = doc_summary or "No documents imported."
         data["Source Library Summary"] = f"{len(docs)} documents imported.\n{doc_summary}"
         data["_doc_count"] = len(docs)
 
-        # Architecture data
+        # Build document inventory prefix for grounding all sections
+        doc_inventory = (
+            f"DOCUMENT INVENTORY (only cite these files):\n{doc_summary}\n"
+            f"\n---\nProject: {data['_project_name']}\n---\n"
+        ) if doc_summary else ""
+
+        # Architecture data — more chunks with longer content for better grounding
         chunks = conn.execute(
             """SELECT c.content, c.section_heading, d.filename
                FROM chunks c JOIN documents d ON c.document_id = d.id
                WHERE d.project_id = ? AND c.chunk_index < 3
-               ORDER BY d.filename LIMIT 30""",
+               ORDER BY d.filename LIMIT 50""",
             (str(project_id),),
         ).fetchall()
 
         tech_text = "\n".join(
-            f"[{r['filename']}, {r['section_heading'] or 'General'}]: {r['content'][:300]}"
+            f"[{r['filename']}, {r['section_heading'] or 'General'}]: {r['content'][:500]}"
             for r in chunks
         )
-        data["_default"] = tech_text or "No indexed content available."
 
-        # Architecture sections use the same data
+        # Prefix all section data with document inventory for grounding
+        grounded_text = doc_inventory + tech_text if tech_text else "No indexed content available."
+        data["_default"] = grounded_text
+
+        # Architecture sections use the same grounded data
         for key in ("System Architecture Overview", "Architecture Overview",
                      "Component Hierarchy", "Communication Map", "External Interfaces",
                      "Security Surface", "Component Inventory", "Interface Map",
                      "Component Identification", "Technical Specifications",
                      "Interfaces and Connections", "Software/Firmware",
                      "Known Vulnerabilities"):
-            data[key] = tech_text
+            data[key] = grounded_text
 
         # Conversations (for investigation summary)
         convs = conn.execute(
@@ -199,32 +223,59 @@ class ReportGenerator:
         tier_str = ", ".join(f"{k}: {v}" for k, v in tier_counts.items())
         data["Confidence Assessment"] = f"Source tier breakdown: {tier_str}. {len(facts)} pinned facts."
         data["Source Confidence"] = f"Source tiers: {tier_str}."
-        data["Information Gaps"] = tech_text  # LLM will identify gaps
-        data["Gaps and Recommendations"] = tech_text
-        data["Recommendations"] = tech_text
+        data["Information Gaps"] = grounded_text  # LLM will identify gaps
+        data["Gaps and Recommendations"] = grounded_text
+        data["Recommendations"] = grounded_text
 
         # Executive / overview
-        data["Executive Summary"] = tech_text
-        data["Product Identification"] = tech_text
+        data["Executive Summary"] = grounded_text
+        data["Product Identification"] = grounded_text
         data["References"] = doc_summary
 
         return data
 
-    def _generate_section(self, heading: str, purpose: str, data: str, project_name: str = "Unknown") -> str:
+    def _generate_section(
+        self,
+        heading: str,
+        purpose: str,
+        data: str,
+        project_name: str = "Unknown",
+        known_files: set[str] | None = None,
+    ) -> str:
         """Generate content for a single report section using the LLM."""
         prompt = _SECTION_PROMPT.format(
             heading=heading, purpose=purpose,
-            data=data[:3000], target_words=200,
+            data=data[:4000], target_words=200,
             project_name=project_name,
         )
         try:
             response = self._llm.generate(prompt, system_prompt="")
             if not isinstance(response, str):
                 response = "".join(response)
-            return response.strip()
+            response = response.strip()
+
+            # Post-generation citation validation
+            if known_files:
+                response = self._validate_citations(response, known_files)
+
+            return response
         except Exception as e:
             log.warning("section_generation_failed", heading=heading, error=str(e))
             return f"[Section generation failed: {e}. Data available: {data[:200]}...]"
+
+    def _validate_citations(self, text: str, known_files: set[str]) -> str:
+        """Flag fabricated citations that don't match actual document filenames."""
+
+        def check_citation(match: re.Match) -> str:
+            cited = match.group(1).strip().lower()
+            # Check for exact or partial match against known filenames
+            for known in known_files:
+                if cited in known or known in cited:
+                    return match.group(0)  # Keep valid citation
+            # Citation doesn't match any known file — flag it
+            return f"[Source: {match.group(1).strip()} (UNVERIFIED)]"
+
+        return _CITATION_PATTERN.sub(check_citation, text)
 
     def _confidence_note(self, heading: str, data: str) -> str | None:
         """Generate a confidence note for a section based on data availability."""

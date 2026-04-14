@@ -37,6 +37,13 @@ export function ChatPage() {
     }
   }, [messages.length]); // Re-run when message count changes
 
+  // Receive streaming citations from ChatWindow
+  const handleStreamCitations = useCallback((citations: Citation[]) => {
+    if (citations.length > 0) {
+      setSourceCitations(citations);
+    }
+  }, []);
+
   const handleCitationClick = useCallback((citation: Citation) => {
     setSourcePanelOpen(true);
     setHighlightedChunk(citation.chunk_id);
@@ -87,6 +94,7 @@ export function ChatPage() {
         <ChatWindow
           messages={messages}
           onCitationClick={handleCitationClick}
+          onStreamCitations={handleStreamCitations}
           projectId={currentProjectId}
           conversationId={activeConvId}
         />
