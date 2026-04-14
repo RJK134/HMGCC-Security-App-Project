@@ -74,6 +74,7 @@ export function useStreamingQuery() {
               } else if (parsed.citations) {
                 setState((prev) => ({
                   ...prev,
+                  streamedText: "",  // Clear so streaming msg disappears
                   citations: parsed.citations || [],
                   confidence: parsed.confidence || null,
                   conversationId: parsed.conversation_id || null,

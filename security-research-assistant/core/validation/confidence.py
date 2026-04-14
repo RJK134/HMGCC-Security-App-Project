@@ -59,10 +59,8 @@ class ConfidenceScorer:
 
         total_score = min(coverage_score + quality_score + support_score + consistency_score, 100.0)
 
-        # Cap score if no search results are sufficiently relevant (off-topic detection)
-        max_relevance = max((r.score for r in search_results), default=0.0)
-        if max_relevance < 0.3:
-            total_score = min(total_score, 25.0)
+        # Note: off-topic detection is handled upstream in the RAG engine
+        # (returns early with score=0 if vector similarity < 0.25)
 
         # Build explanation
         explanation_parts = [
@@ -102,22 +100,18 @@ class ConfidenceScorer:
     def _source_coverage(self, results: list[SearchResult]) -> tuple[float, int, int]:
         """Calculate source coverage sub-score (0-40).
 
-        Only counts sources with relevance score >= 0.3 to prevent
-        off-topic queries from scoring high on coverage.
+        Off-topic detection is handled upstream in the RAG engine
+        (checks vector similarity before RRF), so all results here
+        have already passed the relevance gate.
         """
         if not results:
             return 0.0, 0, 0
 
-        # Filter to only sufficiently relevant results
-        relevant = [r for r in results if r.score >= 0.3]
-        source_count = len(relevant)
-        doc_ids = {r.metadata.get("document_id", "") for r in relevant}
+        source_count = len(results)
+        doc_ids = {r.metadata.get("document_id", "") for r in results}
         doc_count = len(doc_ids - {""})
 
-        if source_count == 0:
-            return 0.0, len(results), 0
-
-        # Base: 10 per relevant source, max 30
+        # Base: 10 per source, max 30
         base = min(source_count * 10, 30)
 
         # Bonus 10 for multi-document coverage

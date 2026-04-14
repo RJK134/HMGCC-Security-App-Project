@@ -1,0 +1,23 @@
+# Forum: IndustrialControlSec.net
+# Thread: Modbus RTU security considerations for STM32-based controllers
+
+User: security_researcher_42
+Date: 2024-11-15
+
+Has anyone looked at the Modbus RTU implementation on STM32F4-based controllers?
+I've found that most implementations don't implement any form of access control
+beyond the unit address. The protocol specification itself doesn't mandate
+authentication, which means any device on the RS-485 bus can read/write any
+register on any connected device.
+
+Reply: embedded_expert
+The STM32F407 UART peripheral supports 9-bit mode which some vendors use for
+a basic address filtering scheme, but this is trivially spoofable. The real
+concern is that function codes 5 (Write Single Coil) and 6 (Write Single Register)
+allow arbitrary write access to the device's holding registers.
+
+Reply: ics_auditor
+In our assessments, we've seen this exact issue across dozens of ICS products.
+The mitigation is usually network segmentation — keeping the Modbus bus physically
+isolated. However, if an attacker gains physical access to the RS-485 bus,
+all connected devices are compromised.

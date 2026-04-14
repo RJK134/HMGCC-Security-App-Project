@@ -1,0 +1,21 @@
+# ICS Product Security Assessment Notes
+
+## Debug Interfaces
+- JTAG/SWD debug port is accessible on the PCB via unpopulated header J3
+- No readout protection (RDP) configured on the STM32 — firmware can be dumped
+- UART2 debug console outputs diagnostic messages at 19200 baud
+
+## Communication Security
+- Modbus RTU protocol has no authentication mechanism
+- RS-485 bus is not encrypted — all traffic visible to any connected device
+- CAN bus messages are unencrypted and unauthenticated
+
+## Firmware Concerns
+- Firmware update mechanism uses UART bootloader with no signature verification
+- Default Modbus address is 0x01 — standard and easily discoverable
+- No watchdog timer implementation observed
+
+## Physical Security
+- PCB has no conformal coating or tamper detection
+- Flash memory IC is accessible for physical chip-off attack
+- Power analysis side-channel attack is feasible via VDD pin

@@ -18,15 +18,19 @@ from core.reports.templates import (
 log = get_logger(__name__)
 
 _SECTION_PROMPT = """You are writing a section of a technical security research report.
+Project: {project_name}
 Section: {heading}
 Purpose: {purpose}
 
-Available data:
+Available data from the project's document library:
 {data}
 
-Write this section in clear, professional technical prose.
-Cite sources using [Source: filename, Page X] format where applicable.
-If data is insufficient for this section, note what is missing.
+IMPORTANT RULES:
+1. ONLY cite documents that appear in the data above. Do NOT invent document names.
+2. Use the exact filenames shown in square brackets (e.g., [Source: actual_filename.pdf]).
+3. If data is insufficient for this section, say "Data not available" — do NOT fabricate.
+4. Use the actual project name "{project_name}" — do NOT invent project names.
+5. Write in clear, professional technical prose.
 Keep to approximately {target_words} words."""
 
 
@@ -63,6 +67,7 @@ class ReportGenerator:
 
         # Gather project data
         data = self._gather_data(project_id, report_type, opts)
+        project_name = data.get("_project_name", "Unknown Project")
 
         # Generate sections
         template = TEMPLATE_SECTIONS[report_type]
@@ -71,7 +76,7 @@ class ReportGenerator:
 
         for heading, purpose in template:
             section_data = data.get(heading, data.get("_default", "No data available."))
-            content = self._generate_section(heading, purpose, section_data)
+            content = self._generate_section(heading, purpose, section_data, project_name)
             llm_calls += 1
             sections.append(ReportSection(
                 heading=heading,
@@ -115,6 +120,12 @@ class ReportGenerator:
         """Gather all relevant data for report generation."""
         conn = self._db.get_connection()
         data: dict = {}
+
+        # Get project name
+        project_row = conn.execute(
+            "SELECT name FROM projects WHERE id = ?", (str(project_id),)
+        ).fetchone()
+        data["_project_name"] = project_row["name"] if project_row else "Unknown Project"
 
         # Documents
         docs = conn.execute(
@@ -199,11 +210,12 @@ class ReportGenerator:
 
         return data
 
-    def _generate_section(self, heading: str, purpose: str, data: str) -> str:
+    def _generate_section(self, heading: str, purpose: str, data: str, project_name: str = "Unknown") -> str:
         """Generate content for a single report section using the LLM."""
         prompt = _SECTION_PROMPT.format(
             heading=heading, purpose=purpose,
             data=data[:3000], target_words=200,
+            project_name=project_name,
         )
         try:
             response = self._llm.generate(prompt, system_prompt="")

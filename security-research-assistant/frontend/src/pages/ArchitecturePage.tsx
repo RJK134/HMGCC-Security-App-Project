@@ -30,12 +30,26 @@ export function ArchitecturePage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/architecture/${currentProjectId}`);
-      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      // Use the GET endpoint which triggers extraction + returns results
+      const res = await fetch(`http://localhost:8000/api/v1/architecture/${currentProjectId}`, {
+        signal: AbortSignal.timeout(300000), // 5 min timeout for LLM extraction
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || `Extraction failed (${res.status}). Ensure Ollama is running.`);
+      }
       const json = await res.json();
-      setData(json);
+      if (!json.graph?.nodes?.length && !json.extraction?.components?.length) {
+        setError("Extraction completed but found no components. Try importing more technical documents (datasheets, schematics).");
+      } else {
+        setData(json);
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load architecture");
+      if (e instanceof DOMException && e.name === "TimeoutError") {
+        setError("Architecture extraction timed out. This can take several minutes with large document sets.");
+      } else {
+        setError(e instanceof Error ? e.message : "Failed to extract architecture. Check backend logs.");
+      }
     } finally {
       setLoading(false);
     }

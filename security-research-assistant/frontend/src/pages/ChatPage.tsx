@@ -1,7 +1,7 @@
 /** Chat page — main conversational interface with source panel. */
 
 import { BookOpen } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ChatWindow } from "../components/chat/ChatWindow";
 import { SourcePanel } from "../components/chat/SourcePanel";
@@ -19,6 +19,23 @@ export function ChatPage() {
   const [sourcePanelOpen, setSourcePanelOpen] = useState(false);
   const [sourceCitations, setSourceCitations] = useState<Citation[]>([]);
   const [highlightedChunk, setHighlightedChunk] = useState<string | null>(null);
+
+  // Auto-populate source panel with citations from the latest assistant message
+  const messages: Message[] = convData?.messages
+    ? (convData.messages as Message[])
+    : [];
+
+  useEffect(() => {
+    if (!messages.length) return;
+    // Find the last assistant message with citations
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === "assistant" && msg.citations && msg.citations.length > 0) {
+        setSourceCitations(msg.citations);
+        break;
+      }
+    }
+  }, [messages.length]); // Re-run when message count changes
 
   const handleCitationClick = useCallback((citation: Citation) => {
     setSourcePanelOpen(true);
@@ -41,10 +58,6 @@ export function ChatPage() {
       </div>
     );
   }
-
-  const messages: Message[] = convData?.messages
-    ? (convData.messages as Message[])
-    : [];
 
   return (
     <div className="h-full flex relative">

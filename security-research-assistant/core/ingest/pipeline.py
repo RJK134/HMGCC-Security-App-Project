@@ -191,6 +191,7 @@ class IngestionPipeline:
                 metadatas=[
                     {
                         "document_id": str(c.document_id),
+                        "filename": filepath.name,
                         "chunk_index": c.chunk_index,
                         "page_number": c.page_number or 0,
                         "section_heading": c.section_heading or "",

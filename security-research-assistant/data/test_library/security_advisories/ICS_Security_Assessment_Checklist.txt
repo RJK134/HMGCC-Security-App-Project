@@ -1,0 +1,84 @@
+# Industrial Control System Security Assessment Checklist
+# Based on NIST SP 800-82 and IEC 62443
+
+## 1. Network Architecture Assessment
+- [ ] Document all network segments (IT, OT, DMZ)
+- [ ] Identify all communication paths between segments
+- [ ] Verify firewall rules between IT and OT networks
+- [ ] Check for unauthorised bridging between networks
+- [ ] Verify no direct internet connectivity to OT network
+- [ ] Document all remote access points (VPN, modem, wireless)
+- [ ] Verify network monitoring coverage on OT segments
+
+## 2. Device Inventory and Configuration
+- [ ] Enumerate all PLCs, RTUs, and HMIs
+- [ ] Document firmware versions for all controllers
+- [ ] Check for default credentials on all devices
+- [ ] Verify password complexity requirements
+- [ ] Document all open ports and running services
+- [ ] Check for unnecessary services (Telnet, FTP, HTTP)
+- [ ] Verify NTP synchronisation across all devices
+
+## 3. Protocol Security Assessment
+### 3.1 Modbus (RTU and TCP)
+- [ ] Identify all Modbus communication paths
+- [ ] Note: Modbus has NO built-in authentication
+- [ ] Note: Modbus has NO encryption capability
+- [ ] Check if function codes 5/6/15/16 (write) are restricted
+- [ ] Verify broadcast address (0x00) handling
+- [ ] Check for rate limiting on Modbus requests
+- [ ] Test for Modbus-specific DoS vulnerabilities
+
+### 3.2 OPC-UA
+- [ ] Verify TLS certificate configuration
+- [ ] Check authentication mode (anonymous access disabled?)
+- [ ] Verify certificate trust chain
+- [ ] Check for expired or self-signed certificates
+- [ ] Test role-based access control configuration
+
+### 3.3 EtherNet/IP and CIP
+- [ ] Check for unprotected implicit messaging
+- [ ] Verify explicit messaging authentication
+- [ ] Test CIP Safety configuration
+
+### 3.4 DNP3
+- [ ] Verify Secure Authentication (SA) implementation
+- [ ] Check HMAC configuration
+- [ ] Test challenge-response mechanism
+
+## 4. Firmware and Software Assessment
+- [ ] Check if firmware updates require digital signatures
+- [ ] Verify bootloader security (readout protection enabled?)
+- [ ] Check for debug interfaces (JTAG, SWD) accessible on PCB
+- [ ] Test for hardcoded credentials in firmware
+- [ ] Check for known CVEs in firmware components
+- [ ] Verify memory protection (MPU/MMU configuration)
+- [ ] Check for stack canaries and ASLR support
+
+## 5. Physical Security
+- [ ] Assess physical access to controller enclosures
+- [ ] Check for tamper detection mechanisms
+- [ ] Verify USB port policies on HMIs and engineering workstations
+- [ ] Check for removable media controls
+- [ ] Assess surveillance coverage of critical equipment
+
+## 6. Safety System Assessment
+- [ ] Verify Safety Instrumented System (SIS) independence from BPCS
+- [ ] Check SIS logic solver configuration
+- [ ] Verify SIS communication isolation
+- [ ] Test emergency shutdown procedures
+- [ ] Verify safety system cannot be bypassed via network
+
+## 7. Supply Chain Considerations
+- [ ] Verify component authenticity (counterfeit detection)
+- [ ] Check for backdoor indicators in firmware
+- [ ] Review third-party library dependencies
+- [ ] Verify vendor patch management process
+- [ ] Check for end-of-life components with no security updates
+
+## 8. Compliance Mapping
+- IEC 62443: Industrial Automation and Control Systems Security
+- NIST SP 800-82: Guide to ICS Security
+- NERC CIP: Critical Infrastructure Protection (if applicable)
+- NIS Directive: Network and Information Security (EU)
+- ISO 27001: Information Security Management

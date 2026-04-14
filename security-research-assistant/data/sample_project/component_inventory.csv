@@ -1,0 +1,9 @@
+Component,Part Number,Type,Interface,Voltage,Package,Manufacturer
+Main MCU,STM32F407VGT6,Processor,SPI/I2C/UART/CAN,3.3V,LQFP100,STMicroelectronics
+Temp Sensor,TMP117AIDRVR,Sensor,I2C,3.3V,SOT-6,Texas Instruments
+Flash Memory,W25Q128JVSIQ,Memory,SPI,3.3V,SOIC-8,Winbond
+CAN Transceiver,MCP2551-I/SN,Transceiver,CAN,5V,SOIC-8,Microchip
+RS-485 Driver,MAX485ESA,Transceiver,UART,5V,SOIC-8,Maxim
+Power Regulator,AMS1117-3.3,Regulator,N/A,3.3V out,SOT-223,AMS
+EEPROM,24LC256-I/SN,Memory,I2C,3.3V,SOIC-8,Microchip
+Crystal,HC49-16MHz,Oscillator,N/A,N/A,HC49,Various
