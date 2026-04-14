@@ -198,7 +198,7 @@ export function ChatWindow({ messages, onCitationClick, onStreamCitations, proje
           const isStreamMsg = msg.id === "streaming";
           return (
             <MessageBubble
-              key={msg.id + i}
+              key={msg.id}
               message={msg}
               confidence={
                 isStreamMsg

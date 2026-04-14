@@ -77,8 +77,8 @@ export function useStreamingQuery() {
                     rafId = null;
                   });
                 }
-              } else if (parsed.citations) {
-                // Stream complete — keep streamedText so the message remains
+              } else if ("citations" in parsed || "confidence" in parsed || "conversation_id" in parsed) {
+                // Stream complete (done event) — keep streamedText so the message remains
                 // visible until TanStack Query refetch replaces it
                 setState((prev) => ({
                   ...prev,

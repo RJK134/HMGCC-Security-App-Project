@@ -83,8 +83,15 @@ class ResponseParser:
                 continue
             seen.add(key)
 
-            # Find matching search result
+            # Find matching search result (LLM may use PDF internal title, not filename)
             matched = self._find_matching_result(filename, page_num, search_results)
+
+            # Override LLM's citation name with the real filename from metadata
+            display_name = filename
+            if matched:
+                real_filename = matched.metadata.get("filename", "")
+                if real_filename and real_filename != "unknown":
+                    display_name = real_filename
 
             doc_id_str = matched.metadata.get("document_id", "") if matched else ""
             try:
@@ -94,7 +101,7 @@ class ResponseParser:
 
             citations.append(Citation(
                 document_id=doc_id,
-                document_name=filename,
+                document_name=display_name,
                 page_number=page_num,
                 chunk_id=matched.chunk_id if matched else "",
                 relevance_score=matched.score if matched else 0.0,

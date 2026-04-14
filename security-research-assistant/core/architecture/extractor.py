@@ -96,13 +96,14 @@ class ArchitectureExtractor:
         """
         conn = self._db.get_connection()
 
-        # Load representative chunks (first chunk from each document + headings)
+        # Load representative chunks — limit to first 2 chunks per doc and 20 total
+        # to keep the LLM prompt small enough for fast processing
         rows = conn.execute(
             """SELECT c.content, c.section_heading, d.filename, c.page_number
                FROM chunks c JOIN documents d ON c.document_id = d.id
-               WHERE d.project_id = ? AND c.chunk_index < 5
+               WHERE d.project_id = ? AND c.chunk_index < 2
                ORDER BY d.filename, c.chunk_index
-               LIMIT 50""",
+               LIMIT 20""",
             (str(project_id),),
         ).fetchall()
 
@@ -118,10 +119,10 @@ class ArchitectureExtractor:
             if row["section_heading"]:
                 header += f", Section: {row['section_heading']}"
             header += "]"
-            text_parts.append(f"{header}\n{row['content'][:500]}")
+            text_parts.append(f"{header}\n{row['content'][:300]}")
 
         combined = "\n\n---\n\n".join(text_parts)
-        prompt = _EXTRACT_PROMPT.format(text=combined[:4000])
+        prompt = _EXTRACT_PROMPT.format(text=combined[:3000])
 
         try:
             response = self._llm.generate(prompt, system_prompt="")

@@ -32,7 +32,7 @@ export function ArchitecturePage() {
     try {
       // Use the GET endpoint which triggers extraction + returns results
       const res = await fetch(`http://localhost:8000/api/v1/architecture/${currentProjectId}`, {
-        signal: AbortSignal.timeout(300000), // 5 min timeout for LLM extraction
+        signal: AbortSignal.timeout(900000), // 15 min timeout for LLM extraction
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -115,7 +115,8 @@ export function ArchitecturePage() {
           <p className="text-sm font-medium mb-1">Extracting architecture...</p>
           <p className="text-xs text-sra-muted">
             The LLM is analysing your documents to identify components, interfaces,
-            protocols, and software. This may take several minutes.
+            protocols, and software. This typically takes 5-15 minutes depending on
+            your hardware and the number of documents.
           </p>
           <p className="text-xs text-sra-muted mt-2">Do not navigate away from this page.</p>
         </div>
