@@ -1,7 +1,6 @@
 /** Custom hook for SSE streaming queries to the RAG engine. */
 
 import { useCallback, useRef, useState } from "react";
-import { queryPost } from "../api/client";
 import type { Citation, ConfidenceResult, QueryRequest } from "../types";
 
 interface StreamState {
@@ -53,6 +52,7 @@ export function useStreamingQuery() {
       const decoder = new TextDecoder();
       let buffer = "";
       let accumulated = "";
+      let rafId: number | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -70,11 +70,18 @@ export function useStreamingQuery() {
               const parsed = JSON.parse(data);
               if (parsed.token) {
                 accumulated += parsed.token;
-                setState((prev) => ({ ...prev, streamedText: accumulated }));
+                // Batch token updates via rAF to reduce re-renders
+                if (rafId === null) {
+                  rafId = requestAnimationFrame(() => {
+                    setState((prev) => ({ ...prev, streamedText: accumulated }));
+                    rafId = null;
+                  });
+                }
               } else if (parsed.citations) {
+                // Stream complete — keep streamedText so the message remains
+                // visible until TanStack Query refetch replaces it
                 setState((prev) => ({
                   ...prev,
-                  streamedText: "",  // Clear so streaming msg disappears
                   citations: parsed.citations || [],
                   confidence: parsed.confidence || null,
                   conversationId: parsed.conversation_id || null,
@@ -88,6 +95,12 @@ export function useStreamingQuery() {
             }
           }
         }
+      }
+
+      // Flush any pending batched token update
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        setState((prev) => ({ ...prev, streamedText: accumulated }));
       }
 
       setState((prev) => ({ ...prev, isStreaming: false }));
@@ -106,5 +119,16 @@ export function useStreamingQuery() {
     setState((prev) => ({ ...prev, isStreaming: false }));
   }, []);
 
-  return { ...state, sendQuery, cancel };
+  const reset = useCallback(() => {
+    setState({
+      streamedText: "",
+      isStreaming: false,
+      citations: [],
+      confidence: null,
+      conversationId: null,
+      error: null,
+    });
+  }, []);
+
+  return { ...state, sendQuery, cancel, reset };
 }

@@ -2,14 +2,16 @@
 
 import tempfile
 from pathlib import Path
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, UploadFile, File
 from fastapi.responses import FileResponse
 
 from backend.config import Settings
-from backend.dependencies import get_app_settings, get_db
+from backend.dependencies import get_app_settings, get_db, get_vector_store
 from core.database.connection import DatabaseManager
 from core.logging import get_logger
+from core.vector_store.chroma_client import ChromaVectorStore
 
 log = get_logger(__name__)
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])
@@ -57,3 +59,51 @@ async def import_data(
     updater = _get_updater(settings)
     stats = updater.import_data(tmp)
     return {"status": "ok", "stats": stats}
+
+
+@router.post("/reindex-metadata/{project_id}")
+def reindex_metadata(
+    project_id: UUID,
+    db: DatabaseManager = Depends(get_db),
+    vector_store: ChromaVectorStore = Depends(get_vector_store),
+) -> dict:
+    """Re-index document metadata in ChromaDB for chunks missing filename.
+
+    Documents imported before the filename metadata fix will have chunks
+    without filename in their ChromaDB metadata. This endpoint backfills
+    filenames from the SQLite document table.
+    """
+    conn = db.get_connection()
+
+    # Get all documents for project
+    docs = conn.execute(
+        "SELECT id, filename FROM documents WHERE project_id = ?",
+        (str(project_id),),
+    ).fetchall()
+    doc_filenames = {row["id"]: row["filename"] for row in docs}
+
+    if not doc_filenames:
+        return {"status": "ok", "updated_chunks": 0, "message": "No documents found."}
+
+    collection = vector_store.get_or_create_collection(project_id)
+    results = collection.get(include=["metadatas"])
+
+    updated = 0
+    for i, meta in enumerate(results["metadatas"]):
+        if not meta.get("filename"):
+            doc_id = meta.get("document_id", "")
+            if doc_id in doc_filenames:
+                meta["filename"] = doc_filenames[doc_id]
+                collection.update(
+                    ids=[results["ids"][i]],
+                    metadatas=[meta],
+                )
+                updated += 1
+
+    log.info(
+        "metadata_reindexed",
+        project_id=str(project_id),
+        total_chunks=len(results["ids"]),
+        updated=updated,
+    )
+    return {"status": "ok", "updated_chunks": updated, "total_chunks": len(results["ids"])}

@@ -1,5 +1,6 @@
 /** Main chat container — message list, streaming, input. */
 
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, FolderOpen, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -13,17 +14,23 @@ import { MessageBubble } from "./MessageBubble";
 interface Props {
   messages: Message[];
   onCitationClick?: (citation: Citation) => void;
+  onStreamCitations?: (citations: Citation[]) => void;
   projectId: string;
   conversationId?: string | null;
 }
 
-export function ChatWindow({ messages, onCitationClick, projectId, conversationId }: Props) {
+export function ChatWindow({ messages, onCitationClick, onStreamCitations, projectId, conversationId }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [streamConfidence, setStreamConfidence] = useState<ConfidenceResult | null>(null);
   const [streamFlagged, setStreamFlagged] = useState<string[]>([]);
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+
+  const queryClient = useQueryClient();
+  const preStreamCount = useRef(0);
+  const prevStreamingRef = useRef(false);
 
   const {
     streamedText,
@@ -34,13 +41,18 @@ export function ChatWindow({ messages, onCitationClick, projectId, conversationI
     conversationId: newConvId,
     sendQuery,
     cancel,
+    reset,
   } = useStreamingQuery();
 
   const { setCurrentConversation } = useAppStore();
 
-  // Sync external messages
+  // Sync external messages and deduplicate against streaming state
   useEffect(() => {
     setLocalMessages(messages);
+    // If DB now has the streamed response, clear streaming state to avoid duplication
+    if (!isStreaming && streamedText && messages.length > preStreamCount.current + 1) {
+      reset(); // DB message is authoritative — drop streaming message
+    }
   }, [messages]);
 
   // Update conversation ID when backend creates one
@@ -52,6 +64,24 @@ export function ChatWindow({ messages, onCitationClick, projectId, conversationI
   useEffect(() => {
     if (confidence) setStreamConfidence(confidence);
   }, [confidence]);
+
+  // Report streaming citations to parent for source panel
+  useEffect(() => {
+    if (citations.length > 0) {
+      onStreamCitations?.(citations);
+    }
+  }, [citations, onStreamCitations]);
+
+  // Invalidate conversation cache when streaming ends so DB message (with citations) is fetched
+  useEffect(() => {
+    if (prevStreamingRef.current && !isStreaming && streamedText) {
+      const convId = newConvId || conversationId;
+      if (convId) {
+        queryClient.invalidateQueries({ queryKey: ["conversation", convId] });
+      }
+    }
+    prevStreamingRef.current = isStreaming;
+  }, [isStreaming]);
 
   // Auto-scroll to bottom on new content
   useEffect(() => {
@@ -68,6 +98,9 @@ export function ChatWindow({ messages, onCitationClick, projectId, conversationI
 
   const handleSend = useCallback(
     (text: string) => {
+      // Capture pre-stream message count for deduplication
+      preStreamCount.current = localMessages.length;
+
       // Optimistic user message
       const userMsg: Message = {
         id: crypto.randomUUID(),
@@ -88,7 +121,7 @@ export function ChatWindow({ messages, onCitationClick, projectId, conversationI
         conversation_id: conversationId ?? undefined,
       });
     },
-    [projectId, conversationId, sendQuery],
+    [projectId, conversationId, sendQuery, localMessages.length],
   );
 
   // Build streaming assistant message
@@ -112,12 +145,13 @@ export function ChatWindow({ messages, onCitationClick, projectId, conversationI
   const navigate = useNavigate();
 
   const handlePin = useCallback(
-    async (content: string, citations: Citation[]) => {
+    async (messageId: string, content: string, citationList: Citation[]) => {
       if (!conversationId) return;
       try {
-        await pinFact(conversationId, content, citations);
-      } catch {
-        // Silently fail — pinning is optional
+        await pinFact(conversationId, content, citationList);
+        setPinnedIds((prev) => new Set(prev).add(messageId));
+      } catch (err) {
+        console.error("Pin failed:", err);
       }
     },
     [conversationId],
@@ -180,7 +214,8 @@ export function ChatWindow({ messages, onCitationClick, projectId, conversationI
               }
               flaggedClaims={isStreamMsg ? streamFlagged : undefined}
               onCitationClick={onCitationClick}
-              onPin={msg.role === "assistant" ? handlePin : undefined}
+              onPin={msg.role === "assistant" ? (content, cits) => handlePin(msg.id, content, cits) : undefined}
+              isPinned={pinnedIds.has(msg.id)}
               isStreaming={isStreamMsg && isStreaming}
             />
           );

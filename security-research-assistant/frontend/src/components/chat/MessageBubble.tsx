@@ -1,6 +1,7 @@
 /** Individual chat message — user or assistant with markdown, citations, confidence. */
 
 import { Pin } from "lucide-react";
+import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Citation, ConfidenceResult, Message } from "../../types";
@@ -16,16 +17,18 @@ interface Props {
   alternatives?: string[];
   onCitationClick?: (citation: Citation) => void;
   onPin?: (content: string, citations: Citation[]) => void;
+  isPinned?: boolean;
   isStreaming?: boolean;
 }
 
-export function MessageBubble({
+function MessageBubbleInner({
   message,
   confidence,
   flaggedClaims,
   alternatives,
   onCitationClick,
   onPin,
+  isPinned,
   isStreaming,
 }: Props) {
   const isUser = message.role === "user";
@@ -95,10 +98,14 @@ export function MessageBubble({
           {onPin && !isStreaming && (
             <button
               onClick={() => onPin(message.content, message.citations)}
-              className="text-sra-muted hover:text-sra-accent transition-colors"
-              title="Pin this finding"
+              className={`transition-colors ${
+                isPinned
+                  ? "text-sra-accent"
+                  : "text-sra-muted hover:text-sra-accent"
+              }`}
+              title={isPinned ? "Finding pinned" : "Pin this finding"}
             >
-              <Pin size={12} />
+              <Pin size={12} fill={isPinned ? "currentColor" : "none"} />
             </button>
           )}
         </div>
@@ -106,3 +113,5 @@ export function MessageBubble({
     </div>
   );
 }
+
+export const MessageBubble = memo(MessageBubbleInner);
