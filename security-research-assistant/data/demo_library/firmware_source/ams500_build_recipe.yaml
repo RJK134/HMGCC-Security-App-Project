@@ -1,0 +1,350 @@
+# =============================================================================
+# AMS-500 Build Recipe: Bracket Assembly — Flight-Critical Component
+# =============================================================================
+# Recipe ID:     BR-2025-0347
+# Part Number:   AMS-BRK-047-Rev.C
+# Material:      316L Stainless Steel (primary), Ti-6Al-4V (alternate)
+# Created:       2025-09-12
+# Last Modified: 2025-11-15
+# Author:        Dr. S. Patel, Materials Engineering
+# Approved:      J. Morrison, Quality Assurance
+#
+# NOTE: This recipe contains proprietary process parameters developed through
+# extensive DOE (Design of Experiments). Parameters are optimised for the
+# AMS-500 platform with IPG YLR-500 laser and are not directly transferable
+# to other SLM platforms without requalification.
+# =============================================================================
+
+recipe:
+  id: "BR-2025-0347"
+  name: "Bracket Assembly - Flight Critical"
+  version: "3.2"
+  part_number: "AMS-BRK-047-Rev.C"
+  classification: "Flight Critical - Class A"
+  standard_compliance:
+    - "ASTM F3184-16: Additive Manufacturing — Process Qualification"
+    - "ASTM F3301-18a: Standard for Thermal Post-Processing Metal Parts Made Via PBF"
+    - "AMS 7003: Laser Powder Bed Fusion Process"
+    - "ISO/ASTM 52904: Qualification of PBF Machine Operators"
+
+# =============================================================================
+# Material Definitions
+# =============================================================================
+materials:
+  primary:
+    name: "316L Stainless Steel"
+    specification: "ASTM F3184 / AMS 5507"
+    supplier: "Carpenter Technology - Carpenter Additive"
+    lot_number: "CT-316L-2025-0891"
+    particle_size:
+      d10_um: 18
+      d50_um: 32
+      d90_um: 48
+      distribution: "Gaussian"
+    chemical_composition:  # Weight percent
+      Fe: "Balance"
+      Cr: "16.5-18.0"
+      Ni: "10.0-13.0"
+      Mo: "2.0-2.5"
+      Mn: "< 2.0"
+      Si: "< 0.75"
+      C: "< 0.03"
+      P: "< 0.04"
+      S: "< 0.03"
+      N: "< 0.10"
+    apparent_density_g_cc: 4.3
+    flowability_s_50g: 14.2  # Hall flowmeter
+    moisture_content_ppm: 320  # Must be < 500 ppm
+    virgin_to_recycled_ratio: "70:30"
+    max_recycle_count: 8
+
+  alternate:
+    name: "Ti-6Al-4V Grade 23 (ELI)"
+    specification: "ASTM F3001 / AMS 4999"
+    supplier: "AP&C (GE Additive)"
+    lot_number: "APC-Ti64-2025-0442"
+    particle_size:
+      d10_um: 20
+      d50_um: 35
+      d90_um: 52
+    chemical_composition:
+      Ti: "Balance"
+      Al: "5.5-6.5"
+      V: "3.5-4.5"
+      Fe: "< 0.25"
+      O: "< 0.13"  # ELI grade - reduced oxygen
+      C: "< 0.08"
+      N: "< 0.03"
+      H: "< 0.012"
+    apparent_density_g_cc: 2.5
+    flowability_s_50g: 18.7
+    moisture_content_ppm: 180
+    virgin_to_recycled_ratio: "80:20"
+    max_recycle_count: 6
+    special_handling:
+      - "Ti powder is pyrophoric in fine fractions. Argon atmosphere mandatory during handling."
+      - "Use dedicated sieving equipment (no cross-contamination with ferrous powders)."
+      - "Store in sealed containers with desiccant. Max shelf life 12 months from atomisation."
+
+# =============================================================================
+# Laser Parameters
+# =============================================================================
+laser_parameters:
+  # --- 316L Stainless Steel - Bulk (interior hatching) ---
+  "316L_bulk":
+    power_w: 285
+    scan_speed_mm_s: 960
+    hatch_spacing_mm: 0.11
+    layer_thickness_mm: 0.040
+    spot_diameter_um: 80
+    energy_density_j_mm3: 75.1  # P / (v * h * t)
+    focal_offset_mm: 0.0
+    gas_flow_direction: "positive_X"
+    notes: "Optimised for >99.5% relative density. Validated on tensile coupons lot CT-316L-2025-0891."
+
+  # --- 316L Stainless Steel - Contour (outer surface) ---
+  "316L_contour":
+    power_w: 150
+    scan_speed_mm_s: 600
+    hatch_spacing_mm: 0.09
+    layer_thickness_mm: 0.040
+    spot_diameter_um: 70
+    contour_count: 2
+    contour_offset_mm: 0.02
+    contour_overlap_mm: 0.04
+    notes: "Lower power for improved surface finish. Ra < 8 um achievable."
+
+  # --- 316L Stainless Steel - Downskin (overhanging surfaces) ---
+  "316L_downskin":
+    power_w: 180
+    scan_speed_mm_s: 800
+    hatch_spacing_mm: 0.10
+    layer_thickness_mm: 0.040
+    spot_diameter_um: 80
+    notes: "Reduced power prevents overmelting on unsupported surfaces. Apply to faces < 45 deg from horizontal."
+
+  # --- 316L Stainless Steel - Upskin (top surfaces) ---
+  "316L_upskin":
+    power_w: 250
+    scan_speed_mm_s: 900
+    hatch_spacing_mm: 0.10
+    layer_thickness_mm: 0.040
+    spot_diameter_um: 80
+    notes: "Slightly reduced parameters for top surface quality."
+
+  # --- Ti-6Al-4V - Bulk ---
+  "Ti64_bulk":
+    power_w: 340
+    scan_speed_mm_s: 1200
+    hatch_spacing_mm: 0.12
+    layer_thickness_mm: 0.030  # Thinner layers for Ti to manage thermal gradients
+    spot_diameter_um: 85
+    energy_density_j_mm3: 78.7
+    focal_offset_mm: 0.0
+    notes: "Higher power and speed for Ti-6Al-4V. O2 must be < 500 ppm (stricter than 316L)."
+
+  # --- Ti-6Al-4V - Contour ---
+  "Ti64_contour":
+    power_w: 180
+    scan_speed_mm_s: 700
+    hatch_spacing_mm: 0.10
+    layer_thickness_mm: 0.030
+    spot_diameter_um: 75
+    contour_count: 2
+    contour_offset_mm: 0.02
+    contour_overlap_mm: 0.04
+
+# =============================================================================
+# Scan Strategy
+# =============================================================================
+scan_strategy:
+  bulk:
+    pattern: "stripe"
+    stripe_width_mm: 10.0
+    rotation_per_layer_deg: 67  # 67 degree rotation minimises anisotropy
+    scan_direction_initial_deg: 0
+    skywriting_enabled: true  # Laser on/off outside part boundary for velocity stabilisation
+    skywriting_distance_mm: 1.5
+
+  contour:
+    scan_order: "contour_first"  # Contour before bulk hatch
+    direction: "alternating"     # CW on even layers, CCW on odd
+    start_point: "nearest"       # Start each contour at nearest point to previous end
+
+  support_structure:
+    type: "block"
+    hatch_spacing_mm: 0.20    # Wider spacing for easy removal
+    power_w: 200
+    scan_speed_mm_s: 1100
+    teeth_height_mm: 1.0
+    teeth_spacing_mm: 1.5
+    top_contact_width_mm: 0.2
+
+# =============================================================================
+# Atmosphere Control
+# =============================================================================
+atmosphere:
+  inert_gas: "Argon"
+  gas_purity: "99.999%"        # 5N purity
+  gas_supplier: "BOC Industrial Gases"
+
+  # O2 thresholds differ by material
+  o2_thresholds:
+    "316L":
+      purge_target_ppm: 800    # Start purge, stop when below this
+      build_max_ppm: 1000      # Laser lockout above this during build
+      alarm_ppm: 900           # Warning alarm
+    "Ti64":
+      purge_target_ppm: 300    # Ti is more sensitive to O2 pickup
+      build_max_ppm: 500
+      alarm_ppm: 400
+
+  flow_rates:
+    purge_l_min: 60            # High flow during initial purge
+    build_l_min: 20            # Maintenance flow during build
+    recirculation: true
+    filter_type: "HEPA + activated carbon"
+    filter_change_interval_hours: 500
+
+  chamber_pressure:
+    target_mbar: 1013          # Slight positive pressure to prevent ingress
+    tolerance_mbar: 20
+    overpressure_relief_mbar: 1050
+
+# =============================================================================
+# Thermal Management
+# =============================================================================
+thermal:
+  preheat:
+    "316L":
+      platform_temperature_c: 80
+      ramp_rate_c_min: 5
+      soak_time_min: 15
+      notes: "Moderate preheat reduces residual stress and warping."
+    "Ti64":
+      platform_temperature_c: 200
+      ramp_rate_c_min: 3
+      soak_time_min: 30
+      notes: "Higher preheat for Ti-6Al-4V. Critical for crack prevention in thin features."
+
+  cooldown:
+    in_chamber_hours: 4        # Cool under argon before opening door
+    min_temperature_c: 50      # Must reach before door open
+    controlled_rate: false     # Natural cooling (furnace cooling for stress relief is post-process)
+
+  chiller:
+    laser_coolant_temperature_c: 22
+    laser_coolant_flow_l_min: 12
+    optics_coolant_temperature_c: 22
+
+# =============================================================================
+# Build Geometry
+# =============================================================================
+build_geometry:
+  build_volume:
+    x_mm: 250
+    y_mm: 250
+    z_mm: 350
+  part_bounding_box:
+    x_mm: 142
+    y_mm: 87
+    z_mm: 63
+  part_volume_cc: 48.3
+  support_volume_cc: 12.7
+  total_layers: 1575           # 63mm / 0.040mm per layer (316L)
+  estimated_build_time_hours: 18.5
+  estimated_powder_mass_kg: 0.82  # Part + supports, includes 5% contingency
+
+  # Platform positioning
+  placement:
+    x_offset_mm: 54.0          # Centre of part relative to platform origin
+    y_offset_mm: 81.5
+    rotation_deg: 0
+    z_offset_mm: 0.0           # On platform surface
+
+# =============================================================================
+# Quality Monitoring
+# =============================================================================
+quality_monitoring:
+  melt_pool_camera:
+    enabled: true
+    type: "coaxial CMOS"
+    exposure_us: 50
+    frame_rate_hz: 1000
+    analysis: "real-time melt pool area and intensity"
+
+  powder_bed_camera:
+    enabled: true
+    type: "off-axis 5MP CCD"
+    capture: "after_recoat"    # Image after each powder layer
+    defect_detection: true     # Automatic anomaly detection (streaks, voids, super-elevation)
+
+  layer_monitoring:
+    log_interval: "every_layer"
+    log_parameters:
+      - "laser_power_actual"
+      - "scan_speed_actual"
+      - "o2_level"
+      - "chamber_pressure"
+      - "platform_temperature"
+      - "recoater_force"
+
+  in_situ_thermography:
+    enabled: false              # Optional module - not installed on this AMS-500 unit
+    type: "LWIR 640x480"
+    notes: "Requires AMS-500-THM upgrade kit. Contact vendor for pricing."
+
+# =============================================================================
+# Post-Processing Requirements
+# =============================================================================
+post_processing:
+  stress_relief:
+    "316L":
+      temperature_c: 470
+      time_hours: 6
+      atmosphere: "Argon"
+      cooling: "Furnace cool to < 100C"
+      standard: "ASTM F3301-18a"
+    "Ti64":
+      temperature_c: 670
+      time_hours: 2
+      atmosphere: "Vacuum (< 1E-4 mbar)"
+      cooling: "Furnace cool to < 100C"
+      standard: "AMS 2801B"
+
+  hot_isostatic_pressing:
+    required: true              # Mandatory for flight-critical parts
+    "316L":
+      temperature_c: 1150
+      pressure_mpa: 103
+      time_hours: 4
+    "Ti64":
+      temperature_c: 920
+      pressure_mpa: 103
+      time_hours: 2
+
+  machining:
+    datum_features: ["Bore A (dia 12H7)", "Face B (flatness 0.02mm)"]
+    surface_finish_requirements:
+      critical_faces: "Ra 1.6 um (machined)"
+      non_critical: "Ra 8 um (as-built acceptable)"
+
+  inspection:
+    - type: "Visual"
+      standard: "ASTM E3166"
+    - type: "Dimensional (CMM)"
+      standard: "ISO 10360-2"
+      key_dimensions: 14
+    - type: "CT Scan"
+      standard: "ASTM E1570"
+      resolution_um: 50
+      acceptance: "No voids > 200 um"
+    - type: "Tensile Testing"
+      standard: "ASTM E8/E8M"
+      specimens: "3 per build (witness coupons)"
+      min_UTS_mpa: 485   # 316L minimum
+      min_yield_mpa: 170
+      min_elongation_pct: 30
+    - type: "Density (Archimedes)"
+      standard: "ASTM B962"
+      min_relative_density_pct: 99.5

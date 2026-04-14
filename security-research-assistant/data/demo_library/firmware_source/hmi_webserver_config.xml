@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AMS-500 HMI Web Server Configuration
+  =====================================
+  Platform: Siemens IPC477E (15" touch panel)
+  Software: WinCC Unified V18 Runtime
+  Network:  10.10.20.50 (Control Network VLAN 20)
+
+  SECURITY OBSERVATIONS:
+  =======================================================================
+  [SEC-HMI-01] Default admin credentials present. The password "AMS500admin"
+               has not been changed from the factory default. This password
+               is documented in the vendor's installation manual.
+
+  [SEC-HMI-02] HTTP (port 80) is enabled alongside HTTPS (port 443).
+               Credentials transmitted over HTTP are in cleartext.
+               No HTTP->HTTPS redirect is configured.
+
+  [SEC-HMI-03] Self-signed TLS certificate. No PKI infrastructure.
+               Certificate CN does not match the IP address, causing
+               browser warnings that operators habitually dismiss.
+
+  [SEC-HMI-04] Session timeout of 3600 seconds (1 hour) is excessive
+               for an industrial HMI. IEC 62443 recommends <= 15 min
+               for unattended sessions at SL-2.
+
+  [SEC-HMI-05] OPC-UA connection to PLC uses SecurityPolicy=None and
+               Anonymous authentication. All process data accessible
+               without credentials.
+
+  [SEC-HMI-06] VNC remote access enabled on port 5900 with a simple
+               password ("ams500"). VNC password is limited to 8 chars
+               and uses DES-based authentication (trivially crackable).
+
+  [SEC-HMI-07] Data logging writes to an SMB share on the engineering
+               workstation. SMB credentials are stored in plaintext
+               in this configuration file.
+  =======================================================================
+-->
+
+<HMIServerConfiguration version="3.2" xmlns="http://www.siemens.com/wincc-unified/config">
+
+  <!-- ================================================================
+       Server Identity and Network Configuration
+       ================================================================ -->
+  <Server>
+    <Name>AMS500-HMI-01</Name>
+    <Description>AMS-500 Additive Manufacturing System - Operator HMI</Description>
+    <HostAddress>10.10.20.50</HostAddress>
+    <MacAddress>00:1B:1B:A4:3C:7E</MacAddress>
+    <Gateway>10.10.20.1</Gateway>
+    <SubnetMask>255.255.255.0</SubnetMask>
+    <DNS></DNS> <!-- No DNS in isolated control network -->
+    <NTPServer>10.10.20.1</NTPServer> <!-- PLC acts as NTP source -->
+    <Timezone>Europe/London</Timezone>
+  </Server>
+
+  <!-- ================================================================
+       Web Server Settings
+       [SEC-HMI-02] Both HTTP and HTTPS enabled. HTTP should be disabled.
+       ================================================================ -->
+  <WebServer>
+    <HTTPEnabled>true</HTTPEnabled>
+    <HTTPPort>80</HTTPPort>
+    <HTTPSEnabled>true</HTTPSEnabled>
+    <HTTPSPort>443</HTTPSPort>
+    <HTTPRedirectToHTTPS>false</HTTPRedirectToHTTPS>
+
+    <!-- TLS Configuration -->
+    <!-- [SEC-HMI-03] Self-signed certificate, CN=AMS500-HMI, expires 2028-01-01 -->
+    <TLS>
+      <CertificateFile>/opt/hmi/certs/server.pem</CertificateFile>
+      <PrivateKeyFile>/opt/hmi/certs/server.key</PrivateKeyFile>
+      <MinVersion>TLSv1.0</MinVersion>  <!-- Should be TLSv1.2 minimum -->
+      <MaxVersion>TLSv1.3</MaxVersion>
+      <CipherSuites>
+        <!-- Includes weak ciphers for compatibility with older browsers -->
+        <Suite>TLS_AES_256_GCM_SHA384</Suite>
+        <Suite>TLS_AES_128_GCM_SHA256</Suite>
+        <Suite>ECDHE-RSA-AES256-GCM-SHA384</Suite>
+        <Suite>ECDHE-RSA-AES128-GCM-SHA256</Suite>
+        <Suite>AES256-SHA256</Suite>              <!-- No forward secrecy -->
+        <Suite>AES128-SHA</Suite>                 <!-- Weak: SHA-1, no FS -->
+        <Suite>DES-CBC3-SHA</Suite>               <!-- WEAK: 3DES, should be removed -->
+      </CipherSuites>
+    </TLS>
+
+    <!-- Session Management -->
+    <!-- [SEC-HMI-04] 1 hour timeout is excessive for industrial HMI -->
+    <Sessions>
+      <MaxConcurrentSessions>10</MaxConcurrentSessions>
+      <SessionTimeout>3600</SessionTimeout>  <!-- seconds -->
+      <IdleTimeout>3600</IdleTimeout>
+      <CookieSecure>false</CookieSecure>      <!-- Should be true when HTTPS available -->
+      <CookieHttpOnly>true</CookieHttpOnly>
+      <CSRFProtection>false</CSRFProtection>  <!-- Disabled for compatibility -->
+    </Sessions>
+
+    <!-- Content Security -->
+    <Security>
+      <ContentSecurityPolicy></ContentSecurityPolicy>  <!-- Not configured -->
+      <XFrameOptions>SAMEORIGIN</XFrameOptions>
+      <XContentTypeOptions>nosniff</XContentTypeOptions>
+      <ReferrerPolicy></ReferrerPolicy>  <!-- Not set -->
+    </Security>
+  </WebServer>
+
+  <!-- ================================================================
+       User Accounts
+       [SEC-HMI-01] Default credentials. Password policy not enforced.
+       ================================================================ -->
+  <UserManagement>
+    <PasswordPolicy>
+      <MinLength>4</MinLength>           <!-- Far too short -->
+      <RequireUppercase>false</RequireUppercase>
+      <RequireLowercase>false</RequireLowercase>
+      <RequireDigit>false</RequireDigit>
+      <RequireSpecial>false</RequireSpecial>
+      <MaxAge>0</MaxAge>                 <!-- 0 = passwords never expire -->
+      <LockoutThreshold>0</LockoutThreshold>  <!-- 0 = no lockout -->
+      <LockoutDuration>0</LockoutDuration>
+    </PasswordPolicy>
+
+    <Users>
+      <!-- Administrator account - full system access -->
+      <!-- [SEC-HMI-01] DEFAULT PASSWORD - change immediately -->
+      <User>
+        <Username>admin</Username>
+        <Password encoding="plaintext">AMS500admin</Password>  <!-- PLAINTEXT! -->
+        <Role>Administrator</Role>
+        <FullName>System Administrator</FullName>
+        <Email></Email>
+        <Enabled>true</Enabled>
+        <ForcePasswordChange>false</ForcePasswordChange>
+      </User>
+
+      <!-- Operator account - build monitoring and basic control -->
+      <User>
+        <Username>operator</Username>
+        <Password encoding="plaintext">operator1</Password>
+        <Role>Operator</Role>
+        <FullName>Machine Operator</FullName>
+        <Enabled>true</Enabled>
+        <ForcePasswordChange>false</ForcePasswordChange>
+      </User>
+
+      <!-- Maintenance account - full access plus diagnostics -->
+      <User>
+        <Username>maintenance</Username>
+        <Password encoding="plaintext">maint2024</Password>
+        <Role>Maintenance</Role>
+        <FullName>Maintenance Engineer</FullName>
+        <Enabled>true</Enabled>
+        <ForcePasswordChange>false</ForcePasswordChange>
+      </User>
+
+      <!-- Service account for vendor remote support -->
+      <User>
+        <Username>ams_service</Username>
+        <Password encoding="plaintext">AMS$erv!ce</Password>
+        <Role>Administrator</Role>
+        <FullName>AMS Vendor Support</FullName>
+        <Enabled>true</Enabled>
+        <ForcePasswordChange>false</ForcePasswordChange>
+      </User>
+    </Users>
+
+    <!-- Role definitions -->
+    <Roles>
+      <Role name="Administrator">
+        <Permission>ViewProcess</Permission>
+        <Permission>ControlProcess</Permission>
+        <Permission>ModifySetpoints</Permission>
+        <Permission>AcknowledgeAlarms</Permission>
+        <Permission>ViewDiagnostics</Permission>
+        <Permission>ModifyConfiguration</Permission>
+        <Permission>ManageUsers</Permission>
+        <Permission>ViewAuditLog</Permission>
+        <Permission>ExportData</Permission>
+        <Permission>FirmwareUpdate</Permission>
+      </Role>
+      <Role name="Operator">
+        <Permission>ViewProcess</Permission>
+        <Permission>ControlProcess</Permission>
+        <Permission>ModifySetpoints</Permission>
+        <Permission>AcknowledgeAlarms</Permission>
+      </Role>
+      <Role name="Maintenance">
+        <Permission>ViewProcess</Permission>
+        <Permission>ControlProcess</Permission>
+        <Permission>ModifySetpoints</Permission>
+        <Permission>AcknowledgeAlarms</Permission>
+        <Permission>ViewDiagnostics</Permission>
+        <Permission>ModifyConfiguration</Permission>
+        <Permission>ExportData</Permission>
+      </Role>
+      <Role name="Viewer">
+        <Permission>ViewProcess</Permission>
+      </Role>
+    </Roles>
+  </UserManagement>
+
+  <!-- ================================================================
+       VNC Remote Access
+       [SEC-HMI-06] VNC enabled with weak authentication.
+       DES-based password limited to 8 characters.
+       ================================================================ -->
+  <RemoteAccess>
+    <VNC>
+      <Enabled>true</Enabled>
+      <Port>5900</Port>
+      <Password>ams500</Password>           <!-- Max 8 chars, DES encrypted -->
+      <AllowedNetworks>10.10.20.0/24</AllowedNetworks>  <!-- But also reachable from 10.10.10.0/24 via misconfigured firewall -->
+      <ViewOnlyPassword>view</ViewOnlyPassword>
+      <MaxConnections>3</MaxConnections>
+      <Encryption>None</Encryption>          <!-- No TLS wrapping on VNC -->
+    </VNC>
+  </RemoteAccess>
+
+  <!-- ================================================================
+       OPC-UA Client Connection to PLC
+       [SEC-HMI-05] No security policy, anonymous access.
+       ================================================================ -->
+  <OPCUAConnections>
+    <Connection name="AMS500_PLC">
+      <EndpointURL>opc.tcp://10.10.20.10:4840</EndpointURL>
+      <SecurityPolicy>None</SecurityPolicy>           <!-- Should be Basic256Sha256 -->
+      <SecurityMode>None</SecurityMode>                <!-- Should be SignAndEncrypt -->
+      <Authentication>
+        <Type>Anonymous</Type>                         <!-- No credentials required -->
+      </Authentication>
+      <SessionTimeout>600000</SessionTimeout>          <!-- 10 minutes -->
+      <PublishingInterval>500</PublishingInterval>      <!-- ms -->
+      <SamplingInterval>250</SamplingInterval>          <!-- ms -->
+      <QueueSize>10</QueueSize>
+      <KeepAliveCount>10</KeepAliveCount>
+      <LifetimeCount>1000</LifetimeCount>
+      <ReconnectDelay>5000</ReconnectDelay>            <!-- ms -->
+    </Connection>
+  </OPCUAConnections>
+
+  <!-- ================================================================
+       Tag Definitions - Process Variables
+       Mapped from OPC-UA nodes on the PLC
+       ================================================================ -->
+  <TagDefinitions>
+    <TagGroup name="Laser">
+      <Tag name="Laser_Power_Actual" datatype="Float" access="ReadOnly"
+           source="OPC-UA" nodeId="ns=2;s=Objects.AMS500.Laser.Power"
+           unit="W" min="0" max="500" deadband="0.5">
+        <Alarm type="HighHigh" limit="480" priority="1" text="Laser power critically high" />
+        <Alarm type="High" limit="450" priority="2" text="Laser power high warning" />
+      </Tag>
+      <Tag name="Laser_State" datatype="Int16" access="ReadOnly"
+           source="OPC-UA" nodeId="ns=2;s=Objects.AMS500.Laser.State" />
+      <Tag name="Laser_Power_Setpoint" datatype="Float" access="ReadWrite"
+           source="OPC-UA" nodeId="ns=2;s=Objects.AMS500.Laser.PowerSetpoint"
+           unit="W" min="0" max="500" />
+    </TagGroup>
+
+    <TagGroup name="BuildPlatform">
+      <Tag name="Platform_Position" datatype="Float" access="ReadOnly"
+           source="OPC-UA" nodeId="ns=2;s=Objects.AMS500.BuildPlatform.Position"
+           unit="mm" min="0" max="350" deadband="0.01" />
+      <Tag name="Platform_Temperature" datatype="Float" access="ReadOnly"
+           source="OPC-UA" nodeId="ns=2;s=Objects.AMS500.BuildPlatform.Temperature"
+           unit="degC" min="0" max="500">
+        <Alarm type="HighHigh" limit="220" priority="1" text="Platform overtemperature" />
+        <Alarm type="High" limit="200" priority="2" text="Platform temperature high" />
+        <Alarm type="Low" limit="15" priority="3" text="Platform temperature low" />
+      </Tag>
+    </TagGroup>
+
+    <TagGroup name="Atmosphere">
+      <Tag name="O2_Level" datatype="Float" access="ReadOnly"
+           source="OPC-UA" nodeId="ns=2;s=Objects.AMS500.Atmosphere.O2Level"
+           unit="ppm" min="0" max="210000" deadband="10">
+        <Alarm type="HighHigh" limit="1000" priority="1" text="O2 level critical - laser lockout" />
+        <Alarm type="High" limit="800" priority="2" text="O2 level above target" />
+      </Tag>
+      <Tag name="Argon_Flow" datatype="Float" access="ReadOnly"
+           source="OPC-UA" nodeId="ns=2;s=Objects.AMS500.Atmosphere.ArgonFlow"
+           unit="l/min" min="0" max="80" />
+      <Tag name="Chamber_Pressure" datatype="Float" access="ReadOnly"
+           source="OPC-UA" nodeId="ns=2;s=Objects.AMS500.Atmosphere.Pressure"
+           unit="mbar" min="900" max="1100">
+        <Alarm type="HighHigh" limit="1050" priority="1" text="Chamber overpressure" />
+        <Alarm type="High" limit="1030" priority="2" text="Chamber pressure high" />
+        <Alarm type="Low" limit="990" priority="2" text="Chamber pressure low" />
+        <Alarm type="LowLow" limit="980" priority="1" text="Chamber pressure critical low" />
+      </Tag>
+    </TagGroup>
+
+    <TagGroup name="System">
+      <Tag name="System_State" datatype="Int16" access="ReadOnly"
+           source="OPC-UA" nodeId="ns=2;s=Objects.AMS500.System.State" />
+      <Tag name="Active_Faults" datatype="UInt32" access="ReadOnly"
+           source="OPC-UA" nodeId="ns=2;s=Objects.AMS500.System.FaultCode" />
+      <Tag name="Layer_Count" datatype="Int32" access="ReadOnly"
+           source="OPC-UA" nodeId="ns=2;s=Objects.AMS500.System.LayerCount" />
+      <Tag name="Total_Layers" datatype="Int32" access="ReadOnly"
+           source="OPC-UA" nodeId="ns=2;s=Objects.AMS500.System.TotalLayers" />
+      <Tag name="Build_Progress" datatype="Float" access="ReadOnly"
+           source="Calculated" expression="(Layer_Count / Total_Layers) * 100"
+           unit="%" min="0" max="100" />
+    </TagGroup>
+
+    <TagGroup name="Safety">
+      <Tag name="Door_Closed" datatype="Bool" access="ReadOnly"
+           source="OPC-UA" nodeId="ns=2;s=Objects.AMS500.Safety.DoorClosed">
+        <Alarm type="State" triggerValue="false" priority="1" text="Build chamber door open" />
+      </Tag>
+      <Tag name="EStop_Active" datatype="Bool" access="ReadOnly"
+           source="OPC-UA" nodeId="ns=2;s=Objects.AMS500.Safety.EStopActive">
+        <Alarm type="State" triggerValue="true" priority="1" text="Emergency stop activated" />
+      </Tag>
+    </TagGroup>
+  </TagDefinitions>
+
+  <!-- ================================================================
+       Alarm Configuration
+       ================================================================ -->
+  <AlarmManagement>
+    <AlarmServer>
+      <MaxActiveAlarms>500</MaxActiveAlarms>
+      <HistoryRetentionDays>365</HistoryRetentionDays>
+      <AcknowledgementRequired priorities="1,2">true</AcknowledgementRequired>
+      <AutoAcknowledge priorities="3,4">true</AutoAcknowledge>
+    </AlarmServer>
+
+    <AlarmPriorities>
+      <Priority level="1" name="Critical" color="#FF0000" sound="alarm_critical.wav" />
+      <Priority level="2" name="Warning" color="#FFA500" sound="alarm_warning.wav" />
+      <Priority level="3" name="Information" color="#FFFF00" sound="" />
+      <Priority level="4" name="Diagnostic" color="#00BFFF" sound="" />
+    </AlarmPriorities>
+  </AlarmManagement>
+
+  <!-- ================================================================
+       Data Logging Configuration
+       [SEC-HMI-07] SMB credentials stored in plaintext.
+       ================================================================ -->
+  <DataLogging>
+    <LocalStorage>
+      <Path>/opt/hmi/datalog/</Path>
+      <MaxSizeMB>2048</MaxSizeMB>
+      <RetentionDays>30</RetentionDays>
+      <Format>SQLite</Format>
+    </LocalStorage>
+
+    <!-- Archive to engineering workstation -->
+    <!-- [SEC-HMI-07] Plaintext SMB credentials -->
+    <ArchiveStorage>
+      <Enabled>true</Enabled>
+      <Type>SMB</Type>
+      <Path>\\10.10.10.20\ams500_data\hmi_archive</Path>
+      <Username>ams_data</Username>
+      <Password>D@taL0g2024!</Password>           <!-- PLAINTEXT SMB PASSWORD -->
+      <Domain>WORKGROUP</Domain>
+      <ArchiveInterval>3600</ArchiveInterval>      <!-- seconds -->
+    </ArchiveStorage>
+
+    <!-- Logged variables and intervals -->
+    <LogGroups>
+      <LogGroup name="ProcessData" interval="1000" enabled="true">
+        <LogTag>Laser_Power_Actual</LogTag>
+        <LogTag>Platform_Position</LogTag>
+        <LogTag>Platform_Temperature</LogTag>
+        <LogTag>O2_Level</LogTag>
+        <LogTag>Argon_Flow</LogTag>
+        <LogTag>Chamber_Pressure</LogTag>
+        <LogTag>System_State</LogTag>
+        <LogTag>Layer_Count</LogTag>
+      </LogGroup>
+      <LogGroup name="SafetyData" interval="500" enabled="true">
+        <LogTag>Door_Closed</LogTag>
+        <LogTag>EStop_Active</LogTag>
+        <LogTag>Active_Faults</LogTag>
+      </LogGroup>
+      <LogGroup name="DiagnosticData" interval="5000" enabled="true">
+        <LogTag>Laser_Power_Setpoint</LogTag>
+        <LogTag>Build_Progress</LogTag>
+      </LogGroup>
+    </LogGroups>
+  </DataLogging>
+
+</HMIServerConfiguration>

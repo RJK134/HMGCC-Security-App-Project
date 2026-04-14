@@ -19,7 +19,7 @@ Status tracking: [ ] Not started | [~] In progress | [x] Complete
 - Tool can answer questions about component relationships and interfaces
 **Implementation:** core/architecture/extractor.py, core/architecture/mapper.py
 **Sprint:** 4.1
-**Status:** [ ]
+**Status:** [x]
 
 ### ER-02: Response Validation & Anti-Hallucination
 **Source:** HMGCC Challenge Form, Page 4, Essential Requirements, Bullet 2
@@ -32,7 +32,7 @@ Status tracking: [ ] Not started | [~] In progress | [x] Complete
 - No raw LLM output reaches the user without validation
 **Implementation:** core/validation/pipeline.py, core/validation/hallucination.py
 **Sprint:** 2.3
-**Status:** [ ]
+**Status:** [x]
 
 ### ER-03: Multi-Modal Input Characterisation
 **Source:** HMGCC Challenge Form, Page 4, Essential Requirements, Bullet 3
@@ -46,7 +46,7 @@ Status tracking: [ ] Not started | [~] In progress | [x] Complete
 - All parsed content is indexed and searchable
 **Implementation:** core/ingest/parsers/
 **Sprint:** 1.2
-**Status:** [ ]
+**Status:** [x]
 
 ### ER-04: Source Verification & Cross-Referencing
 **Source:** HMGCC Challenge Form, Page 4, Essential Requirements, Bullet 4
@@ -59,7 +59,7 @@ Status tracking: [ ] Not started | [~] In progress | [x] Complete
 - Users can manually assign source quality tiers on import
 **Implementation:** core/validation/source_tier.py, core/validation/cross_reference.py
 **Sprint:** 2.3
-**Status:** [ ]
+**Status:** [x]
 
 ### ER-05: Confidence Scoring
 **Source:** HMGCC Challenge Form, Page 4, Essential Requirements, Bullet 5
@@ -71,7 +71,7 @@ Status tracking: [ ] Not started | [~] In progress | [x] Complete
 - Confidence explanation is human-readable (not just a number)
 **Implementation:** core/validation/confidence.py
 **Sprint:** 2.3
-**Status:** [ ]
+**Status:** [x]
 
 ### ER-06: Fully Offline Operation
 **Source:** HMGCC Challenge Form, Page 4, Essential Requirements, Bullet 6
@@ -86,7 +86,7 @@ Status tracking: [ ] Not started | [~] In progress | [x] Complete
 - Installation possible from offline media (USB/local package)
 **Implementation:** Entire architecture; verified in Sprint 5.1
 **Sprint:** All (verified 5.1)
-**Status:** [ ]
+**Status:** [x]
 
 ### ER-07: Intelligent Search & Chat Interface
 **Source:** HMGCC Challenge Form, Page 4, Essential Requirements, Bullet 7
@@ -99,7 +99,7 @@ Status tracking: [ ] Not started | [~] In progress | [x] Complete
 - Interface supports markdown rendering, code highlighting, and inline citations
 **Implementation:** core/rag/engine.py, frontend/src/components/chat/
 **Sprint:** 2.1 (backend), 3.2 (frontend)
-**Status:** [ ]
+**Status:** [x]
 
 ### ER-08: Conversational Memory
 **Source:** HMGCC Challenge Form, Page 4, Essential Requirements, Bullet 8
@@ -113,7 +113,7 @@ Status tracking: [ ] Not started | [~] In progress | [x] Complete
 - User does not need to repeat previously established context
 **Implementation:** core/conversation/manager.py, core/conversation/summariser.py, core/conversation/memory.py
 **Sprint:** 2.2
-**Status:** [ ]
+**Status:** [x]
 
 ---
 
@@ -129,7 +129,7 @@ Status tracking: [ ] Not started | [~] In progress | [x] Complete
 - User can view and edit their learned profile
 **Implementation:** core/profile/tracker.py, core/profile/adapter.py
 **Sprint:** 4.3
-**Status:** [ ]
+**Status:** [x]
 
 ### DR-02: Non-English Data Support
 **Source:** HMGCC Challenge Form, Page 4, Desirable Requirements, Bullet 2
@@ -141,7 +141,7 @@ Status tracking: [ ] Not started | [~] In progress | [x] Complete
 - Search works across translated content
 **Implementation:** core/ingest/translator.py
 **Sprint:** 4.3 (stretch goal)
-**Status:** [ ]
+**Status:** [x]
 
 ### DR-03: Cultural Bias Mitigation
 **Source:** HMGCC Challenge Form, Page 4, Desirable Requirements, Bullet 3
@@ -152,7 +152,7 @@ Status tracking: [ ] Not started | [~] In progress | [x] Complete
 - No single cultural perspective is automatically privileged over others
 **Implementation:** Prompt engineering in core/rag/context_builder.py
 **Sprint:** 4.3
-**Status:** [ ]
+**Status:** [x]
 
 ### DR-04: Offline Update Mechanism
 **Source:** HMGCC Challenge Form, Page 4, Desirable Requirements, Bullet 4
@@ -164,7 +164,7 @@ Status tracking: [ ] Not started | [~] In progress | [x] Complete
 - Documentation of update procedures
 **Implementation:** scripts/update.py, backend/api/v1/settings.py
 **Sprint:** 5.2
-**Status:** [ ]
+**Status:** [x]
 
 ---
 
@@ -222,25 +222,25 @@ Status tracking: [ ] Not started | [~] In progress | [x] Complete
 
 | Requirement | Sprint(s) | Module(s) | Test(s) | Status |
 |-------------|-----------|-----------|---------|--------|
-| ER-01 | 4.1 | core/architecture/ | tests/test_architecture/ | [ ] |
-| ER-02 | 2.3 | core/validation/ | tests/test_validation/ | [ ] |
-| ER-03 | 1.2 | core/ingest/parsers/ | tests/test_ingest/ | [ ] |
-| ER-04 | 2.3 | core/validation/ | tests/test_validation/ | [ ] |
-| ER-05 | 2.3 | core/validation/confidence.py | tests/test_validation/ | [ ] |
-| ER-06 | All | All | tests/integration/test_offline.py | [ ] |
-| ER-07 | 2.1, 3.2 | core/rag/, frontend/chat/ | tests/test_rag/ | [ ] |
-| ER-08 | 2.2 | core/conversation/ | tests/test_conversation/ | [ ] |
-| DR-01 | 4.3 | core/profile/ | tests/test_profile/ | [ ] |
-| DR-02 | 4.3 | core/ingest/translator.py | tests/test_ingest/ | [ ] |
-| DR-03 | 4.3 | core/rag/context_builder.py | tests/test_rag/ | [ ] |
-| DR-04 | 5.2 | scripts/, backend/settings | tests/integration/ | [ ] |
-| NFR-01 | 5.1 | — | tests/benchmarks/ | [ ] |
-| NFR-02 | 5.1 | — | tests/benchmarks/ | [ ] |
-| NFR-03 | 5.1 | — | tests/integration/test_offline.py | [ ] |
-| NFR-04 | 5.2 | — | Manual test on clean VMs | [ ] |
-| NFR-05 | 3.1-3.3 | frontend/ | Manual UX testing | [ ] |
-| NFR-06 | 1.2 | core/ingest/parsers/base.py | Architectural review | [ ] |
-| NFR-07 | 1.2, 2.1 | core/ingest/, core/rag/ | tests/test_ingest/, tests/test_rag/ | [ ] |
+| ER-01 | 4.1 | core/architecture/ | tests/test_architecture/ | [x] |
+| ER-02 | 2.3 | core/validation/ | tests/test_validation/ | [x] |
+| ER-03 | 1.2 | core/ingest/parsers/ | tests/test_ingest/ | [x] |
+| ER-04 | 2.3 | core/validation/ | tests/test_validation/ | [x] |
+| ER-05 | 2.3 | core/validation/confidence.py | tests/test_validation/ | [x] |
+| ER-06 | All | All | tests/integration/test_offline.py | [x] |
+| ER-07 | 2.1, 3.2 | core/rag/, frontend/chat/ | tests/test_rag/ | [x] |
+| ER-08 | 2.2 | core/conversation/ | tests/test_conversation/ | [x] |
+| DR-01 | 4.3 | core/profile/ | tests/test_profile/ | [x] |
+| DR-02 | 4.3 | core/ingest/translator.py | tests/test_ingest/ | [x] |
+| DR-03 | 4.3 | core/rag/context_builder.py | tests/test_rag/ | [x] |
+| DR-04 | 5.2 | scripts/, backend/settings | tests/integration/ | [x] |
+| NFR-01 | 5.1 | — | tests/benchmarks/ | [x] |
+| NFR-02 | 5.1 | — | tests/benchmarks/ | [x] |
+| NFR-03 | 5.1 | — | tests/integration/test_offline.py | [x] |
+| NFR-04 | 5.2 | — | Manual test on clean VMs | [x] |
+| NFR-05 | 3.1-3.3 | frontend/ | Manual UX testing | [x] |
+| NFR-06 | 1.2 | core/ingest/parsers/base.py | Architectural review | [x] |
+| NFR-07 | 1.2, 2.1 | core/ingest/, core/rag/ | tests/test_ingest/, tests/test_rag/ | [x] |
 
 ---
 
