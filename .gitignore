@@ -31,6 +31,7 @@ data/models/*
 **/data/vectordb/*
 **/data/sqlite/*
 **/data/models/*
+**/uploads/
 !data/**/.gitkeep
 !**/data/**/.gitkeep
 *.db
