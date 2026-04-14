@@ -26,7 +26,7 @@ export function NotificationBell() {
     if (!currentProjectId) return;
     try {
       const res = await fetch(
-        `http://localhost:8000/api/v1/notifications?project_id=${currentProjectId}`,
+        `/api/v1/notifications?project_id=${currentProjectId}`,
       );
       if (res.ok) {
         const data = await res.json();

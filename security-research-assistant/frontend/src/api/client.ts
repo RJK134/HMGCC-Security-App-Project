@@ -13,7 +13,8 @@ import type {
   Citation,
 } from "../types";
 
-const API_BASE = "http://localhost:8000/api/v1";
+// Use relative URL so it works via Vite proxy from any device on the network
+const API_BASE = "/api/v1";
 const TIMEOUT_MS = 30_000;
 
 class ApiError extends Error {

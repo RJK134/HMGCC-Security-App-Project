@@ -1,0 +1,68 @@
+# ICS Attack Techniques Reference
+# Based on MITRE ATT&CK for ICS Framework
+
+## T0800 — Activate Firmware Update Mode
+Adversaries may activate firmware update mode to modify device firmware.
+STM32 devices enter bootloader via BOOT0 pin or system reset with boot config.
+Attack requires: physical access to BOOT0 pin or ability to modify option bytes.
+
+## T0803 — Block Command Message
+Adversaries may block command messages to prevent legitimate control commands.
+Modbus RTU: inject malformed frames on RS-485 bus to corrupt legitimate traffic.
+CAN bus: flood with high-priority messages to starve lower-priority frames.
+
+## T0806 — Brute Force I/O
+Adversaries may brute-force I/O addresses to discover connected devices.
+Modbus: scan slave addresses 1-247 with Read Holding Registers (FC 03).
+CAN: send frames with incrementing IDs to discover responding nodes.
+
+## T0814 — Denial of Service
+Adversaries may perform denial of service attacks to disrupt control operations.
+RS-485 bus: continuous transmission prevents other devices from communicating.
+CAN bus: error frame injection forces nodes into bus-off state.
+Modbus TCP: SYN flood or connection exhaustion on TCP port 502.
+
+## T0821 — Modify Controller Tasking
+Adversaries may modify the tasking of a controller to change its operation.
+Modbus: Write Single Register (FC 06) to modify setpoints and control parameters.
+CAN: inject forged control frames with valid message IDs.
+Impact: process disruption, safety system bypass, equipment damage.
+
+## T0831 — Manipulation of Control
+Adversaries may manipulate control systems to change process behavior.
+Example: Modify temperature setpoint from 250°C to 500°C via Modbus register write.
+Example: Disable safety interlock by writing to coil register.
+Detection: monitor for unexpected register write operations.
+
+## T0836 — Modify Parameter
+Adversaries may modify parameters of controllers and devices.
+Modbus holding registers contain operational parameters:
+  - Setpoints (register 0x0020-0x002F)
+  - Alarm thresholds (register 0x0030-0x003F)
+  - Calibration values (register 0x0040-0x004F)
+All accessible without authentication via Modbus FC 06/16.
+
+## T0839 — Module Firmware
+Adversaries may install modified firmware on ICS field devices.
+STM32: firmware can be replaced via UART bootloader without signature verification.
+W25Q128: SPI flash can be overwritten if chip-select line is accessible.
+EEPROM: I2C EEPROM (24LC256) stores configuration data writable without protection.
+
+## T0848 — Rogue Master Device
+Adversaries may set up a rogue master device on an industrial network.
+RS-485: any device can transmit as a Modbus master (no bus arbitration).
+CAN: any node can transmit any message ID (no source authentication).
+Mitigation: physical network segmentation, protocol-aware firewalls.
+
+## T0855 — Unauthorized Command Message
+Adversaries may send unauthorized command messages to control system devices.
+Modbus has no authentication: FC 05 (Write Coil) and FC 06 (Write Register)
+execute immediately without verification of sender identity.
+Critical impact: emergency stop trigger, motor enable/disable, heater control.
+
+## Common Attack Chains for ICS Products:
+1. Physical access → JTAG/SWD → firmware dump → credential extraction
+2. RS-485 tap → Modbus sniff → register map → parameter manipulation
+3. USB access → DFU mode → firmware replacement → persistent backdoor
+4. Network access → Modbus TCP scan → holding register write → process disruption
+5. Supply chain → counterfeit component → hardware trojan → data exfiltration

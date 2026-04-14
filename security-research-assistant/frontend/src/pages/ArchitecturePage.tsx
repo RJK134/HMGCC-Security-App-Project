@@ -31,7 +31,7 @@ export function ArchitecturePage() {
     setError(null);
     try {
       // Use the GET endpoint which triggers extraction + returns results
-      const res = await fetch(`http://localhost:8000/api/v1/architecture/${currentProjectId}`, {
+      const res = await fetch(`/api/v1/architecture/${currentProjectId}`, {
         signal: AbortSignal.timeout(900000), // 15 min timeout for LLM extraction
       });
       if (!res.ok) {

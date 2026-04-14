@@ -13,6 +13,7 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
+    host: true, // Allow access from phones/tablets on local network
     proxy: {
       "/api": {
         target: "http://localhost:8000",

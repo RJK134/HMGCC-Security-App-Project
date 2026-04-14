@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAppStore } from "../stores/appStore";
 
-const API = "http://localhost:8000/api/v1";
+const API = "/api/v1";
 
 const REPORT_TYPES = [
   { value: "product_overview", label: "Product Overview", desc: "Complete product description with component inventory and architecture" },

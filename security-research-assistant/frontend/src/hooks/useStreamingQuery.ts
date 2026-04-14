@@ -37,7 +37,7 @@ export function useStreamingQuery() {
     abortRef.current = new AbortController();
 
     try {
-      const response = await fetch("http://localhost:8000/api/v1/query?stream=true", {
+      const response = await fetch("/api/v1/query?stream=true", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(request),
