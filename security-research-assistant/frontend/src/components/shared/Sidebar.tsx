@@ -124,11 +124,8 @@ function ConversationList({
   const handleRename = async (id: string) => {
     if (!editTitle.trim()) { setEditingId(null); return; }
     try {
-      await fetch(`/api/v1/conversations/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: editTitle.trim() }),
-      });
+      const { renameConversation } = await import("../../api/client");
+      await renameConversation(id, editTitle.trim());
       setEditingId(null);
     } catch { setEditingId(null); }
   };
