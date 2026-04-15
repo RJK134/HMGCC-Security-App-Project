@@ -17,7 +17,7 @@ import type {
 const API_BASE = "/api/v1";
 const TIMEOUT_MS = 30_000;
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
@@ -204,6 +204,16 @@ export async function createConversation(
 
 export async function deleteConversation(id: string): Promise<void> {
   await request(`/conversations/${id}`, { method: "DELETE" });
+}
+
+export async function renameConversation(
+  id: string,
+  title: string,
+): Promise<void> {
+  await request(`/conversations/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title }),
+  });
 }
 
 // --- Pinned Facts ---
