@@ -41,7 +41,19 @@ def fuse_results(
         if result.chunk_id not in chunk_map:
             chunk_map[result.chunk_id] = result
 
-    # Sort by fused score
+    # Apply source tier boost — manufacturer docs rank higher than unverified
+    _TIER_BOOST: dict[str, float] = {
+        "tier_1_manufacturer": 1.0,
+        "tier_2_academic": 0.9,
+        "tier_3_trusted_forum": 0.75,
+        "tier_4_unverified": 0.65,
+    }
+    for chunk_id in rrf_scores:
+        tier = chunk_map[chunk_id].metadata.get("source_tier", "tier_4_unverified")
+        boost = _TIER_BOOST.get(tier, 0.65)
+        rrf_scores[chunk_id] *= (0.5 + 0.5 * boost)  # Compressed range: 0.825-1.0
+
+    # Sort by boosted fused score
     ranked = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
 
     results: list[SearchResult] = []

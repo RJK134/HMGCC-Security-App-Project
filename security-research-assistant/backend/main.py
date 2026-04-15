@@ -40,6 +40,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     get_vector_store()
     log.info("vector_store_ready", path=str(settings.chroma_dir))
 
+    # Repair legacy document metadata (backfill missing filenames in ChromaDB)
+    try:
+        from core.ingest.metadata_repair import repair_missing_filenames
+        repaired = repair_missing_filenames(db, get_vector_store())
+        if repaired > 0:
+            log.info("metadata_repair_on_startup", chunks_repaired=repaired)
+    except Exception as e:
+        log.warning("metadata_repair_failed", error=str(e))
+
     # Check Ollama (warn if not running, don't crash)
     ollama = get_ollama_client()
     if ollama.health_check():

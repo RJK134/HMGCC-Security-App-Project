@@ -10,6 +10,7 @@ export function useHealth() {
     queryFn: healthCheck,
     refetchInterval: 10_000,
     retry: 2,
-    staleTime: 5_000,
+    staleTime: 15_000,
+    refetchOnWindowFocus: false,
   });
 }

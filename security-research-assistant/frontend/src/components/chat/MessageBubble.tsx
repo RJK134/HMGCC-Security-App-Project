@@ -93,7 +93,7 @@ function MessageBubbleInner({
         )}
 
         {/* Footer: timestamp + pin */}
-        <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-60 transition-opacity">
+        <div className="flex items-center gap-2 mt-1 opacity-20 group-hover:opacity-60 transition-opacity">
           <span className="text-[10px] text-sra-muted">{ts}</span>
           {onPin && !isStreaming && (
             <button

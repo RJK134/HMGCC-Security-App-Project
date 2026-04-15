@@ -22,6 +22,8 @@ class ReportExporter:
             Markdown string.
         """
         lines: list[str] = []
+        lines.append("**OFFICIAL**")
+        lines.append("")
         lines.append(f"# {report.title}")
         lines.append("")
         lines.append(f"**Generated:** {report.generated_at.strftime('%Y-%m-%d %H:%M UTC')}")
@@ -54,6 +56,10 @@ class ReportExporter:
         lines.append("")
         for k, v in report.metadata.items():
             lines.append(f"- **{k.replace('_', ' ').title()}:** {v}")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+        lines.append("**OFFICIAL**")
         lines.append("")
 
         return "\n".join(lines)
@@ -193,14 +199,17 @@ class ReportExporter:
   .meta {{ color: #64748b; font-size: 0.9em; }}
   .note {{ background: #fef3c7; border-left: 3px solid #f59e0b; padding: 8px 12px; margin: 8px 0; font-size: 0.9em; }}
   section {{ margin-bottom: 1.5em; }}
-  @media print {{ body {{ max-width: 100%; margin: 0; }} }}
+  .classification {{ text-align: center; font-weight: bold; font-size: 0.9em; border: 1px solid #000; padding: 4px; margin-bottom: 16px; letter-spacing: 0.2em; }}
+  @media print {{ body {{ max-width: 100%; margin: 0; }} .classification {{ page-break-after: avoid; }} }}
 </style>
 </head>
 <body>
+<div class="classification">OFFICIAL</div>
 <h1>{report.title}</h1>
 <p class="meta">Generated: {report.generated_at.strftime('%Y-%m-%d %H:%M UTC')} |
 Type: {report.report_type.value.replace('_', ' ').title()}</p>
 <hr>
 {"".join(sections_html)}
+<div class="classification">OFFICIAL</div>
 </body>
 </html>"""

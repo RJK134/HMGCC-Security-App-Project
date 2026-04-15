@@ -27,8 +27,8 @@ export function SourcePanel({ citations, highlightedChunkId, onClose }: Props) {
       <div className="w-[350px] border-l border-sra-border bg-sra-sidebar p-4 shrink-0">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold">Sources</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded">
-            <X size={14} />
+          <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded min-w-[32px] min-h-[32px] flex items-center justify-center" aria-label="Close sources panel">
+            <X size={18} />
           </button>
         </div>
         <p className="text-xs text-sra-muted">No sources for this response.</p>

@@ -6,6 +6,7 @@ import type { Citation, ConfidenceResult, QueryRequest } from "../types";
 interface StreamState {
   streamedText: string;
   isStreaming: boolean;
+  stage: "idle" | "searching" | "generating" | "complete";
   citations: Citation[];
   confidence: ConfidenceResult | null;
   conversationId: string | null;
@@ -16,6 +17,7 @@ export function useStreamingQuery() {
   const [state, setState] = useState<StreamState>({
     streamedText: "",
     isStreaming: false,
+    stage: "idle",
     citations: [],
     confidence: null,
     conversationId: null,
@@ -28,6 +30,7 @@ export function useStreamingQuery() {
     setState({
       streamedText: "",
       isStreaming: true,
+      stage: "searching",
       citations: [],
       confidence: null,
       conversationId: null,
@@ -73,7 +76,7 @@ export function useStreamingQuery() {
                 // Batch token updates via rAF to reduce re-renders
                 if (rafId === null) {
                   rafId = requestAnimationFrame(() => {
-                    setState((prev) => ({ ...prev, streamedText: accumulated }));
+                    setState((prev) => ({ ...prev, streamedText: accumulated, stage: "generating" }));
                     rafId = null;
                   });
                 }
@@ -82,13 +85,14 @@ export function useStreamingQuery() {
                 // visible until TanStack Query refetch replaces it
                 setState((prev) => ({
                   ...prev,
+                  stage: "complete",
                   citations: parsed.citations || [],
                   confidence: parsed.confidence || null,
                   conversationId: parsed.conversation_id || null,
                   isStreaming: false,
                 }));
               } else if (parsed.error) {
-                setState((prev) => ({ ...prev, error: parsed.error, isStreaming: false }));
+                setState((prev) => ({ ...prev, error: parsed.error, isStreaming: false, stage: "idle" }));
               }
             } catch {
               // Skip unparseable lines
@@ -123,6 +127,7 @@ export function useStreamingQuery() {
     setState({
       streamedText: "",
       isStreaming: false,
+      stage: "idle",
       citations: [],
       confidence: null,
       conversationId: null,

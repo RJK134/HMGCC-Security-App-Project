@@ -20,6 +20,15 @@ export function ChatPage() {
   const [sourceCitations, setSourceCitations] = useState<Citation[]>([]);
   const [highlightedChunk, setHighlightedChunk] = useState<string | null>(null);
 
+  // Close source panel on Escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && sourcePanelOpen) setSourcePanelOpen(false);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [sourcePanelOpen]);
+
   // Auto-populate source panel with citations from the latest assistant message
   const messages: Message[] = convData?.messages
     ? (convData.messages as Message[])
