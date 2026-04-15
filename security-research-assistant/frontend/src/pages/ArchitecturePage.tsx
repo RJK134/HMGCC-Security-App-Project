@@ -24,11 +24,25 @@ export function ArchitecturePage() {
   const [data, setData] = useState<ArchData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [extractionStage, setExtractionStage] = useState("");
 
   const fetchArchitecture = useCallback(async () => {
     if (!currentProjectId) return;
     setLoading(true);
     setError(null);
+
+    // Timer-based stage progression for user feedback
+    const stages = [
+      { delay: 0, text: "Initialising analysis..." },
+      { delay: 10000, text: "Scanning document library..." },
+      { delay: 30000, text: "Identifying hardware components..." },
+      { delay: 90000, text: "Mapping interfaces and protocols..." },
+      { delay: 180000, text: "Analysing software and firmware..." },
+      { delay: 300000, text: "Building architecture graph..." },
+    ];
+    const timers = stages.map(({ delay, text }) =>
+      setTimeout(() => setExtractionStage(text), delay),
+    );
     try {
       // Use the GET endpoint which triggers extraction + returns results
       const res = await fetch(`/api/v1/architecture/${currentProjectId}`, {
@@ -52,6 +66,8 @@ export function ArchitecturePage() {
         setError(e instanceof Error ? e.message : "Failed to extract architecture. Check backend logs.");
       }
     } finally {
+      timers.forEach(clearTimeout);
+      setExtractionStage("");
       setLoading(false);
     }
   }, [currentProjectId]);
@@ -112,11 +128,9 @@ export function ArchitecturePage() {
       {loading && (
         <div className="bg-sra-card border border-sra-border rounded-lg p-8 text-center">
           <Loader2 size={32} className="animate-spin mx-auto text-sra-accent mb-3" />
-          <p className="text-sm font-medium mb-1">Extracting architecture...</p>
+          <p className="text-sm font-medium mb-1">{extractionStage || "Extracting architecture..."}</p>
           <p className="text-xs text-sra-muted">
-            The LLM is analysing your documents to identify components, interfaces,
-            protocols, and software. This typically takes 5-15 minutes depending on
-            your hardware and the number of documents.
+            This typically takes 5-15 minutes depending on your hardware.
           </p>
           <p className="text-xs text-sra-muted mt-2">Do not navigate away from this page.</p>
         </div>

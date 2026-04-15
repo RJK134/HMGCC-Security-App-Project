@@ -136,13 +136,11 @@ export function ReportsPage() {
                   <p className="text-xs font-medium truncate">{r.title}</p>
                   <p className="text-[10px] text-sra-muted">{new Date(r.generated_at).toLocaleDateString()}</p>
                 </button>
-                <div className="flex gap-1 mt-1">
-                  {(["markdown", "pdf", "json", "html"] as const).map((fmt) => (
-                    <button key={fmt} onClick={() => exportReport(r.id, fmt)}
-                      className="text-[9px] px-1.5 py-0.5 rounded border border-sra-border hover:bg-gray-100 dark:hover:bg-gray-700 uppercase">
-                      {fmt}
-                    </button>
-                  ))}
+                <div className="flex gap-1 mt-1 items-center">
+                  <button onClick={() => viewReport(r.id)}
+                    className="text-[9px] px-2 py-0.5 rounded bg-sra-accent/10 text-sra-accent hover:bg-sra-accent/20">
+                    View
+                  </button>
                   <button onClick={() => deleteReport(r.id)}
                     className="text-[9px] px-1 text-red-500 hover:text-red-700 ml-auto">
                     <Trash2 size={10} />
