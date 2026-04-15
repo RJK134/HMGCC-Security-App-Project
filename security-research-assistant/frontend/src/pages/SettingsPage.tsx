@@ -1,12 +1,14 @@
 /** Settings page — model selection, RAG parameters, theme. */
 
 import { RefreshCw, Save, Settings } from "lucide-react";
+import { useDocuments } from "../hooks/useDocuments";
 import { useHealth } from "../hooks/useHealth";
 import { useAppStore } from "../stores/appStore";
 
 export function SettingsPage() {
-  const { theme, setTheme } = useAppStore();
+  const { theme, setTheme, currentProjectId } = useAppStore();
   const { data: health } = useHealth();
+  const { data: docsData } = useDocuments(currentProjectId);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -114,7 +116,8 @@ export function SettingsPage() {
           <p>Security Research Assistant v0.1.0</p>
           <p>HMGCC Co-Creation Challenge (CH-2026-001)</p>
           <p>Fully offline operation — no internet required</p>
-          <p>Documents indexed: {health?.document_count ?? "—"}</p>
+          <p>Documents in current project: {(docsData as Record<string, unknown>)?.total as number ?? 0}</p>
+          <p>Total across all projects: {health?.document_count ?? "—"}</p>
         </div>
       </section>
 

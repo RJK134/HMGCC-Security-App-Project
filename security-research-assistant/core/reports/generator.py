@@ -27,11 +27,13 @@ Available data from the project's document library:
 {data}
 
 IMPORTANT RULES:
-1. ONLY cite documents that appear in the data above. Do NOT invent document names.
-2. Use the exact filenames shown in square brackets (e.g., [Source: actual_filename.pdf]).
-3. If data is insufficient for this section, say "Data not available" — do NOT fabricate.
-4. Use the actual project name "{project_name}" — do NOT invent project names.
-5. Write in clear, professional technical prose.
+1. ONLY cite documents from this ALLOWED LIST:
+{allowed_files}
+2. Use exact filenames from the list above (e.g., [Source: actual_filename.pdf]).
+3. If data is insufficient, say "Data not available" — do NOT fabricate.
+4. The project name is EXACTLY "{project_name}" — do NOT invent other names.
+5. Do NOT invent document names like "Project Briefing" or "System Design Specifications".
+6. Write in clear, professional technical prose.
 Keep to approximately {target_words} words."""
 
 _CITATION_PATTERN = re.compile(
@@ -148,8 +150,9 @@ class ReportGenerator:
             for d in docs
         )
 
-        # Track known filenames for citation validation
-        known_files: set[str] = {d["filename"].lower() for d in docs}
+        # Track known filenames for citation validation and prompt allowlist
+        known_files: set[str] = {d["filename"] for d in docs}
+        data["_known_files"] = known_files
         data["_known_files"] = known_files
 
         data["Appendix: Source Documents"] = doc_summary or "No documents imported."
@@ -243,10 +246,16 @@ class ReportGenerator:
         known_files: set[str] | None = None,
     ) -> str:
         """Generate content for a single report section using the LLM."""
+        # Build explicit allowlist of real document filenames
+        files_list = "\n".join(
+            f"  {i+1}. {f}" for i, f in enumerate(sorted(known_files or []))
+        ) or "  (No documents imported)"
+
         prompt = _SECTION_PROMPT.format(
             heading=heading, purpose=purpose,
-            data=data[:4000], target_words=200,
+            data=data[:3000], target_words=200,
             project_name=project_name,
+            allowed_files=files_list,
         )
         try:
             response = self._llm.generate(prompt, system_prompt="")
@@ -264,16 +273,17 @@ class ReportGenerator:
             return f"[Section generation failed: {e}. Data available: {data[:200]}...]"
 
     def _validate_citations(self, text: str, known_files: set[str]) -> str:
-        """Flag fabricated citations that don't match actual document filenames."""
+        """Strip fabricated citations that don't match actual document filenames."""
+        known_lower = {f.lower() for f in known_files}
 
         def check_citation(match: re.Match) -> str:
             cited = match.group(1).strip().lower()
             # Check for exact or partial match against known filenames
-            for known in known_files:
+            for known in known_lower:
                 if cited in known or known in cited:
                     return match.group(0)  # Keep valid citation
-            # Citation doesn't match any known file — flag it
-            return f"[Source: {match.group(1).strip()} (UNVERIFIED)]"
+            # Citation doesn't match any known file — remove it entirely
+            return ""
 
         return _CITATION_PATTERN.sub(check_citation, text)
 

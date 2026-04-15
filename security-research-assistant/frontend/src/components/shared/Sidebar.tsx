@@ -5,12 +5,15 @@ import {
   FolderOpen,
   MessageSquare,
   Network,
+  Pencil,
   Plus,
   Settings,
+  Trash2,
 } from "lucide-react";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
-import { useConversations } from "../../hooks/useConversations";
+import { useConversations, useDeleteConversation } from "../../hooks/useConversations";
 
 const NAV_ITEMS = [
   { path: "/chat", icon: MessageSquare, label: "Chat" },
@@ -72,26 +75,113 @@ export function Sidebar() {
               <Plus size={14} />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-2 pb-2">
-            {conversations?.map((conv) => (
-              <button
-                key={conv.id}
-                onClick={() => {
-                  setCurrentConversation(conv.id);
-                  navigate(`/chat/${conv.id}`);
-                }}
-                className="w-full text-left px-2 py-1.5 rounded text-xs text-sra-muted hover:bg-gray-100 dark:hover:bg-gray-800 truncate"
-                title={conv.title}
-              >
-                {conv.title}
-              </button>
-            ))}
-            {conversations?.length === 0 && (
-              <p className="text-xs text-sra-muted px-2 py-1">No conversations yet</p>
-            )}
-          </div>
+          <ConversationList
+            conversations={conversations ?? []}
+            currentConversationId={useAppStore.getState().currentConversationId}
+            onSelect={(id) => { setCurrentConversation(id); navigate(`/chat/${id}`); }}
+          />
         </div>
       )}
     </aside>
+  );
+}
+
+/** Date-grouped conversation list with rename/delete actions. */
+function ConversationList({
+  conversations,
+  currentConversationId,
+  onSelect,
+}: {
+  conversations: { id: string; title: string; updated_at: string }[];
+  currentConversationId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const deleteConv = useDeleteConversation();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+
+  if (!conversations.length) {
+    return <p className="text-xs text-sra-muted px-2 py-1">No conversations yet</p>;
+  }
+
+  // Group by date
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const weekAgo = new Date(today.getTime() - 7 * 86400000);
+
+  const groups: Record<string, typeof conversations> = {
+    Today: [], Yesterday: [], "This Week": [], Older: [],
+  };
+  for (const c of conversations) {
+    const d = new Date(c.updated_at);
+    if (d >= today) groups.Today.push(c);
+    else if (d >= yesterday) groups.Yesterday.push(c);
+    else if (d >= weekAgo) groups["This Week"].push(c);
+    else groups.Older.push(c);
+  }
+
+  const handleRename = async (id: string) => {
+    if (!editTitle.trim()) { setEditingId(null); return; }
+    try {
+      await fetch(`/api/v1/conversations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editTitle.trim() }),
+      });
+      setEditingId(null);
+    } catch { setEditingId(null); }
+  };
+
+  return (
+    <div className="flex-1 overflow-y-auto px-2 pb-2">
+      {Object.entries(groups).map(([label, items]) =>
+        items.length > 0 && (
+          <div key={label}>
+            <p className="text-[9px] text-sra-muted uppercase px-2 pt-2 pb-0.5">{label}</p>
+            {items.map((conv) => (
+              <div key={conv.id} className="group flex items-center gap-0.5">
+                {editingId === conv.id ? (
+                  <input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleRename(conv.id)}
+                    onBlur={() => handleRename(conv.id)}
+                    className="flex-1 text-xs px-2 py-1 rounded border border-sra-accent bg-transparent focus:outline-none"
+                    autoFocus
+                  />
+                ) : (
+                  <button
+                    onClick={() => onSelect(conv.id)}
+                    className={`flex-1 text-left px-2 py-1.5 rounded text-xs truncate ${
+                      conv.id === currentConversationId
+                        ? "text-sra-accent bg-sra-accent/10"
+                        : "text-sra-muted hover:bg-gray-100 dark:hover:bg-gray-800"
+                    }`}
+                    title={conv.title}
+                  >
+                    {conv.title}
+                  </button>
+                )}
+                <button
+                  onClick={() => { setEditingId(conv.id); setEditTitle(conv.title); }}
+                  className="opacity-0 group-hover:opacity-60 p-0.5"
+                  title="Rename"
+                >
+                  <Pencil size={10} />
+                </button>
+                <button
+                  onClick={() => { if (confirm("Delete this conversation?")) deleteConv.mutate(conv.id); }}
+                  className="opacity-0 group-hover:opacity-60 p-0.5 text-red-400"
+                  title="Delete"
+                >
+                  <Trash2 size={10} />
+                </button>
+              </div>
+            ))}
+          </div>
+        ),
+      )}
+    </div>
   );
 }

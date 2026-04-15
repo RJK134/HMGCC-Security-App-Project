@@ -100,6 +100,31 @@ def get_conversation(
     }
 
 
+class RenameConversationRequest(BaseModel):
+    title: str
+
+
+@router.patch("/{conversation_id}")
+def rename_conversation(
+    conversation_id: UUID,
+    request: RenameConversationRequest,
+    db: DatabaseManager = Depends(get_db),
+) -> dict:
+    """Rename a conversation."""
+    conn = db.get_connection()
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    cursor = conn.execute(
+        "UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?",
+        (request.title, now, str(conversation_id)),
+    )
+    conn.commit()
+    if cursor.rowcount == 0:
+        from core.exceptions import ConversationNotFoundError
+        raise ConversationNotFoundError(f"Conversation not found: {conversation_id}")
+    return {"status": "ok", "conversation_id": str(conversation_id), "title": request.title}
+
+
 @router.delete("/{conversation_id}")
 def delete_conversation(
     conversation_id: UUID,

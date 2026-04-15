@@ -110,9 +110,14 @@ export function DropZone({ onImportComplete }: Props) {
       </div>
 
       {/* Tier selector */}
-      <div className="flex items-center gap-3">
-        <span className="text-xs text-sra-muted">Source quality:</span>
+      <div className="space-y-1">
+        <label className="text-xs text-sra-muted font-medium">
+          Select ONE quality tier for imported files:
+        </label>
         <SourceTierSelector value={tier} onChange={setTier} size="sm" />
+        <p className="text-[10px] text-sra-muted">
+          This helps the AI prioritise more authoritative sources in answers.
+        </p>
       </div>
 
       {/* File list during import */}
