@@ -1,0 +1,168 @@
+{
+    "name": "HMGCC SPA - Research & Document Library Builder",
+    "nodes": [
+          {
+                  "parameters": {
+                            "rule": {
+                                        "interval": [
+                                                      {
+                                                                      "field": "hours",
+                                                                      "triggerAtHour": 5
+                                                      }
+                                        ]
+                            }
+                  },
+                  "id": "schedule-daily-5am",
+                  "name": "Daily 5am",
+                  "type": "n8n-nodes-base.scheduleTrigger",
+                  "typeVersion": 1.2,
+                  "position": [0, 0]
+          },
+          {
+                  "parameters": {
+                            "url": "https://www.ncsc.gov.uk/api/1/services/v1/all-rss-feed.xml"
+                  },
+                  "id": "rss-ncsc",
+                  "name": "NCSC Publications",
+                  "type": "n8n-nodes-base.rssFeedRead",
+                  "typeVersion": 1,
+                  "position": [200, -200]
+          },
+          {
+                  "parameters": {
+                            "url": "https://www.gov.uk/search/news-and-communications.atom?topic=%2Fbrowse%2Fgovernment%2Fcyber-security"
+                  },
+                  "id": "rss-govuk-cyber",
+                  "name": "Gov.uk Cyber Security",
+                  "type": "n8n-nodes-base.rssFeedRead",
+                  "typeVersion": 1,
+                  "position": [200, -120]
+          },
+          {
+                  "parameters": {
+                            "url": "https://rss.arxiv.org/rss/cs.CR"
+                  },
+                  "id": "rss-arxiv",
+                  "name": "arXiv Cryptography",
+                  "type": "n8n-nodes-base.rssFeedRead",
+                  "typeVersion": 1,
+                  "position": [200, -40]
+          },
+          {
+                  "parameters": {
+                            "url": "https://gds.blog.gov.uk/feed/"
+                  },
+                  "id": "rss-gds",
+                  "name": "GDS Blog",
+                  "type": "n8n-nodes-base.rssFeedRead",
+                  "typeVersion": 1,
+                  "position": [200, 40]
+          },
+          {
+                  "parameters": {
+                            "url": "https://www.gov.uk/search/news-and-communications.atom?topic=%2Fbrowse%2Fgovernment%2Fdigital-service-delivery"
+                  },
+                  "id": "rss-govuk-digital",
+                  "name": "Gov.uk Digital Service",
+                  "type": "n8n-nodes-base.rssFeedRead",
+                  "typeVersion": 1,
+                  "position": [200, 120]
+          },
+          {
+                  "parameters": {
+                            "url": "https://www.gov.uk/search/news-and-communications.atom?topic=%2Fbrowse%2Fgovernment%2Fai-standards"
+                  },
+                  "id": "rss-govuk-ai",
+                  "name": "Gov.uk AI Standards",
+                  "type": "n8n-nodes-base.rssFeedRead",
+                  "typeVersion": 1,
+                  "position": [200, 200]
+          },
+          {
+                  "parameters": {
+                            "mode": "runOnceForAllItems",
+                            "jsCode": "var items = $input.all();\nvar results = [];\nvar now = new Date().toISOString();\nfor (var i = 0; i < items.length; i++) {\n  var data = items[i].json;\n  var title = data.title || data.name || 'Untitled';\n  var link = data.link || data.url || data.guid || '';\n  var summary = (data.contentSnippet || data.content || data.description || '').replace(/<[^>]*>/g,'').trim();\n  var source = data.creator || data.author || 'Unknown';\n  var published = data.pubDate || data.isoDate || data.date || now;\n  var category = 'research-papers';\n  var priority = 3;\n  var text = (title + ' ' + summary).toLowerCase();\n  if (/threat|advisory|advisori|vulnerabilit|cve|incident|attack|malware|breach|exploit/.test(text)) { category='threat-intelligence'; priority=1; }\n  else if (/standard|policy|policies|guidance|framework|compliance|regulation|nist|iso/.test(text)) { category='standards-policy'; priority=2; }\n  else if (/crypto|encryption|cipher|quantum|hash|tls|pki|certificate|key management/.test(text)) { category='cryptography'; priority=2; }\n  else if (/gds|accessibility|wcag|design system|user research|service design|single.page|spa/.test(text)) { category='spa-design-gds'; priority=2; }\n  results.push({json:{title:title,link:link,summary:summary.substring(0,300),source:source,published:published,category:category,priority:priority}});\n}\nresults.sort(function(a,b){return a.json.priority - b.json.priority;});\nreturn results;"
+                  },
+                  "id": "code-categorise",
+                  "name": "Categorise Documents",
+                  "type": "n8n-nodes-base.code",
+                  "typeVersion": 2,
+                  "position": [400, 0]
+          },
+          {
+                  "parameters": {
+                            "mode": "runOnceForAllItems",
+                            "jsCode": "var now = new Date().toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'});\nvar allItems = $('Categorise Documents').all();\nvar groups = {};\nfor (var i=0;i<allItems.length;i++){\n  var c=allItems[i].json.category||'other';\n  if(!groups[c])groups[c]=[];\n  groups[c].push(allItems[i].json);\n}\nvar labels={\n  'threat-intelligence':'🚨 Threat Intelligence & Advisories',\n  'standards-policy':'📋 Standards, Policy & Guidance',\n  'cryptography':'🔐 Cryptography & Encryption',\n  'spa-design-gds':'🏛️ SPA Design, GDS & Accessibility',\n  'research-papers':'📄 Research Papers & Analysis',\n  'other':'📌 Other'\n};\nvar order=['threat-intelligence','standards-policy','cryptography','spa-design-gds','research-papers','other'];\nvar html='<div style=\"font-family:Arial,sans-serif;max-width:700px;margin:0 auto;\">';\nhtml+='<div style=\"background:#003078;color:#fff;padding:20px;border-radius:6px 6px 0 0;\">';\nhtml+='<h1 style=\"margin:0;font-size:1.4em;\">🔒 HMGCC SPA Research & Document Library</h1>';\nhtml+='<p style=\"margin:5px 0 0;opacity:0.8;\">'+now+'</p></div>';\nfor(var ci=0;ci<order.length;ci++){\n  var cat=order[ci];\n  var entries=groups[cat];\n  if(!entries||!entries.length)continue;\n  html+='<div style=\"padding:15px 20px;border-bottom:2px solid #eee;\">';\n  html+='<h2 style=\"color:#003078;font-size:1.1em;margin:0 0 10px;\">'+(labels[cat]||cat)+' ('+entries.length+')</h2>';\n  html+='<ul style=\"padding-left:20px;margin:0;\">';\n  for(var e=0;e<entries.length;e++){\n    html+='<li style=\"margin-bottom:8px;\">';\n    html+='<strong><a href=\"'+entries[e].link+'\" style=\"color:#003078;\">'+entries[e].title+'</a></strong>';\n    if(entries[e].summary)html+='<br><span style=\"color:#555;font-size:0.9em;\">'+entries[e].summary.substring(0,200)+'</span>';\n    html+='<br><small style=\"color:#999;\">'+entries[e].source+'</small></li>';\n  }\n  html+='</ul></div>';\n}\nhtml+='<p style=\"color:#999;font-size:0.8em;padding:10px 20px;\">Generated by Workhorse &bull; '+now+'</p></div>';\nreturn [{json:{subject:'HMGCC SPA Research Digest — '+now,html:html,itemCount:allItems.length}}];"
+},
+      "id": "code-build-email",
+      "name": "Build Library Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 0]
+},
+    {
+            "parameters": {
+                      "sendTo": "richardknapp134@gmail.com",
+        "subject": "={{ $json.subject }}",
+                      "message": "={{ $json.html }}",
+        "options": {
+                    "isHtml": true
+        }
+            },
+            "id": "gmail-send",
+            "name": "Send Library Update",
+      "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.1,
+            "position": [800, 0],
+            "credentials": {
+                      "gmailOAuth2": {
+                                  "id": "1lLnVsSKehWVnwnW",
+                                  "name": "Gmail OAuth2 API"
+                      }
+            }
+    }
+],
+  "connections": {
+        "Daily 5am": {
+                "main": [
+                          [
+                                      {"node": "NCSC Publications", "type": "main", "index": 0},
+                                      {"node": "Gov.uk Cyber Security", "type": "main", "index": 0},
+                                      {"node": "arXiv Cryptography", "type": "main", "index": 0},
+                                      {"node": "GDS Blog", "type": "main", "index": 0},
+                                      {"node": "Gov.uk Digital Service", "type": "main", "index": 0},
+                                      {"node": "Gov.uk AI Standards", "type": "main", "index": 0}
+                          ]
+                ]
+        },
+    "NCSC Publications": {
+            "main": [[{"node": "Categorise Documents", "type": "main", "index": 0}]]
+    },
+        "Gov.uk Cyber Security": {
+                "main": [[{"node": "Categorise Documents", "type": "main", "index": 0}]]
+        },
+        "arXiv Cryptography": {
+                "main": [[{"node": "Categorise Documents", "type": "main", "index": 0}]]
+        },
+        "GDS Blog": {
+                "main": [[{"node": "Categorise Documents", "type": "main", "index": 0}]]
+        },
+        "Gov.uk Digital Service": {
+                "main": [[{"node": "Categorise Documents", "type": "main", "index": 0}]]
+        },
+        "Gov.uk AI Standards": {
+                "main": [[{"node": "Categorise Documents", "type": "main", "index": 0}]]
+        },
+        "Categorise Documents": {
+                "main": [[{"node": "Build Library Email", "type": "main", "index": 0}]]
+        },
+        "Build Library Email": {
+                "main": [[{"node": "Send Library Update", "type": "main", "index": 0}]]
+        }
+  },
+  "active": true,
+  "settings": {
+        "executionOrder": "v1"
+  },
+  "tags": []
+}
