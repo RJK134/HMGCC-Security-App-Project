@@ -1,0 +1,169 @@
+{
+    "name": "HERM & HE Academic Management Landscape Scanner",
+    "nodes": [
+          {
+                  "parameters": {
+                            "rule": {
+                                        "interval": [
+                                                      {
+                                                                      "field": "weeks",
+                                                                      "triggerAtDay": 2,
+                                                                      "triggerAtHour": 4
+                                                      }
+                                        ]
+                            }
+                  },
+                  "id": "schedule-weekly-tue-4am",
+                  "name": "Weekly Tuesday 4am",
+                  "type": "n8n-nodes-base.scheduleTrigger",
+                  "typeVersion": 1.2,
+                  "position": [0, 0]
+          },
+          {
+                  "parameters": {
+                            "url": "https://wonkhe.com/feed/"
+                  },
+                  "id": "rss-wonkhe",
+                  "name": "WonkHE",
+                  "type": "n8n-nodes-base.rssFeedRead",
+                  "typeVersion": 1,
+                  "position": [200, -240]
+          },
+          {
+                  "parameters": {
+                            "url": "https://www.hepi.ac.uk/feed/"
+                  },
+                  "id": "rss-hepi",
+                  "name": "HEPI",
+                  "type": "n8n-nodes-base.rssFeedRead",
+                  "typeVersion": 1,
+                  "position": [200, -160]
+          },
+          {
+                  "parameters": {
+                            "url": "https://www.timeshighereducation.com/rss.xml"
+                  },
+                  "id": "rss-the",
+                  "name": "Times Higher Education",
+                  "type": "n8n-nodes-base.rssFeedRead",
+                  "typeVersion": 1,
+                  "position": [200, -80]
+          },
+          {
+                  "parameters": {
+                            "url": "https://www.jisc.ac.uk/news/rss"
+                  },
+                  "id": "rss-jisc",
+                  "name": "Jisc News",
+                  "type": "n8n-nodes-base.rssFeedRead",
+                  "typeVersion": 1,
+                  "position": [200, 0]
+          },
+          {
+                  "parameters": {
+                            "url": "https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=office-for-students"
+                  },
+                  "id": "rss-govuk-he",
+                  "name": "Gov.uk HE & OfS",
+                  "type": "n8n-nodes-base.rssFeedRead",
+                  "typeVersion": 1,
+                  "position": [200, 80]
+          },
+          {
+                  "parameters": {
+                            "url": "https://universitybusiness.co.uk/feed/"
+                  },
+                  "id": "rss-unibiz",
+                  "name": "University Business",
+                  "type": "n8n-nodes-base.rssFeedRead",
+                  "typeVersion": 1,
+                  "position": [200, 160]
+          },
+          {
+                  "parameters": {
+                            "mode": "runOnceForAllItems",
+                            "jsCode": "var items = $input.all();\nvar results = [];\nvar now = new Date().toISOString();\nfor (var i = 0; i < items.length; i++) {\n  var data = items[i].json;\n  var title = data.title || data.name || 'Untitled';\n  var link = data.link || data.url || data.guid || '';\n  var summary = (data.contentSnippet || data.content || data.description || '').replace(/<[^>]*>/g,'').trim();\n  var source = data.creator || data.author || 'Unknown';\n  var published = data.pubDate || data.isoDate || data.date || now;\n  var category = 'sector-news';\n  var priority = 3;\n  var text = (title + ' ' + summary).toLowerCase();\n  if (/\\bherm\\b|enterprise resource|erp|student information system|sis|mis |management information/.test(text)) { category='herm-updates'; priority=1; }\n  else if (/tribal|ellucian|unit4|technologyone|aptem|\\bsits\\b|banner|workday|oracle student|campus solution|colleague|peoplesoft/.test(text)) { category='vendor-intelligence'; priority=1; }\n  else if (/launch|release|new version|update|announced|available now|product|feature|integration/.test(text)) { category='product-launches'; priority=2; }\n  else if (/\\bofs\\b|office for students|\\bhesa\\b|\\btef\\b|\\bref\\b|regulatory|compliance|statutory|nss|graduate outcome|registration condition/.test(text)) { category='regulatory-compliance'; priority=2; }\n  else if (/\\bai\\b|artificial intelligence|machine learning|edtech|ed.tech|learning analytic|chatgpt|generative|llm|automation/.test(text)) { category='ai-higher-education'; priority=2; }\n  results.push({json:{title:title,link:link,summary:summary.substring(0,300),source:source,published:published,category:category,priority:priority}});\n}\nresults.sort(function(a,b){return a.json.priority - b.json.priority;});\nreturn results;"
+                  },
+                  "id": "code-categorise-herm",
+                  "name": "Categorise Sector News",
+                  "type": "n8n-nodes-base.code",
+                  "typeVersion": 2,
+                  "position": [400, 0]
+          },
+          {
+                  "parameters": {
+                            "mode": "runOnceForAllItems",
+                            "jsCode": "var now = new Date().toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'});\nvar allItems = $('Categorise Sector News').all();\nvar groups = {};\nfor (var i=0;i<allItems.length;i++){\n  var c=allItems[i].json.category||'other';\n  if(!groups[c])groups[c]=[];\n  groups[c].push(allItems[i].json);\n}\nvar labels={\n  'herm-updates':'🏫 HERM Model & ERP Updates',\n  'vendor-intelligence':'🏢 Vendor Intelligence (Tribal/Ellucian/Unit4/Workday)',\n  'product-launches':'🚀 Product Launches & Updates',\n  'regulatory-compliance':'📜 Regulatory & Compliance (OfS/HESA/TEF/REF)',\n  'ai-higher-education':'🤖 AI in Higher Education',\n  'sector-news':'📰 Sector News & Analysis',\n  'other':'📌 Other'\n};\nvar order=['herm-updates','vendor-intelligence','product-launches','regulatory-compliance','ai-higher-education','sector-news','other'];\nvar html='<div style=\"font-family:Arial,sans-serif;max-width:700px;margin:0 auto;\">';\nhtml+='<div style=\"background:#1a3a5c;color:#fff;padding:20px;border-radius:6px 6px 0 0;\">';\nhtml+='<h1 style=\"margin:0;font-size:1.4em;\">🎓 HERM & HE Landscape Intelligence Digest</h1>';\nhtml+='<p style=\"margin:5px 0 0;opacity:0.8;\">Week of '+now+'</p></div>';\nfor(var ci=0;ci<order.length;ci++){\n  var cat=order[ci];\n  var entries=groups[cat];\n  if(!entries||!entries.length)continue;\n  html+='<div style=\"padding:15px 20px;border-bottom:2px solid #eee;\">';\n  html+='<h2 style=\"color:#1a3a5c;font-size:1.1em;margin:0 0 10px;\">'+(labels[cat]||cat)+' ('+entries.length+')</h2>';\n  html+='<ul style=\"padding-left:20px;margin:0;\">';\n  for(var e=0;e<entries.length;e++){\n    html+='<li style=\"margin-bottom:8px;\">';\n    html+='<strong><a href=\"'+entries[e].link+'\" style=\"color:#1a3a5c;\">'+entries[e].title+'</a></strong>';\n    if(entries[e].summary)html+='<br><span style=\"color:#555;font-size:0.9em;\">'+entries[e].summary.substring(0,200)+'</span>';\n    html+='<br><small style=\"color:#999;\">'+entries[e].source+'</small></li>';\n  }\n  html+='</ul></div>';\n}\nhtml+='<p style=\"color:#999;font-size:0.8em;padding:10px 20px;\">Generated by Workhorse &bull; '+now+'</p></div>';\nreturn [{json:{subject:'HERM Landscape Digest — '+now,html:html,itemCount:allItems.length}}];"
+},
+      "id": "code-build-herm-email",
+      "name": "Build HERM Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 0]
+},
+    {
+            "parameters": {
+                      "sendTo": "richardknapp134@gmail.com",
+                      "subject": "={{ $json.subject }}",
+                      "message": "={{ $json.html }}",
+                      "options": {
+                                  "isHtml": true
+                      }
+            },
+            "id": "gmail-send-herm",
+            "name": "Send HERM Update",
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.1,
+            "position": [800, 0],
+            "credentials": {
+                      "gmailOAuth2": {
+                                  "id": "1lLnVsSKehWVnwnW",
+                                  "name": "Gmail OAuth2 API"
+                      }
+            }
+    }
+],
+  "connections": {
+        "Weekly Tuesday 4am": {
+                "main": [
+                          [
+                                      {"node": "WonkHE", "type": "main", "index": 0},
+                                      {"node": "HEPI", "type": "main", "index": 0},
+                                      {"node": "Times Higher Education", "type": "main", "index": 0},
+                                      {"node": "Jisc News", "type": "main", "index": 0},
+                                      {"node": "Gov.uk HE & OfS", "type": "main", "index": 0},
+                                      {"node": "University Business", "type": "main", "index": 0}
+                          ]
+                ]
+        },
+        "WonkHE": {
+                "main": [[{"node": "Categorise Sector News", "type": "main", "index": 0}]]
+        },
+        "HEPI": {
+                "main": [[{"node": "Categorise Sector News", "type": "main", "index": 0}]]
+        },
+        "Times Higher Education": {
+                "main": [[{"node": "Categorise Sector News", "type": "main", "index": 0}]]
+        },
+        "Jisc News": {
+                "main": [[{"node": "Categorise Sector News", "type": "main", "index": 0}]]
+        },
+        "Gov.uk HE & OfS": {
+                "main": [[{"node": "Categorise Sector News", "type": "main", "index": 0}]]
+        },
+        "University Business": {
+                "main": [[{"node": "Categorise Sector News", "type": "main", "index": 0}]]
+        },
+        "Categorise Sector News": {
+                "main": [[{"node": "Build HERM Email", "type": "main", "index": 0}]]
+        },
+        "Build HERM Email": {
+                "main": [[{"node": "Send HERM Update", "type": "main", "index": 0}]]
+        }
+  },
+  "active": true,
+  "settings": {
+        "executionOrder": "v1"
+  },
+  "tags": []
+}
