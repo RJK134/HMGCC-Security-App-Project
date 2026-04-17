@@ -106,6 +106,7 @@ class ResponseParser:
                 chunk_id=matched.chunk_id if matched else "",
                 relevance_score=matched.score if matched else 0.0,
                 excerpt=matched.content[:150] if matched else "",
+                source_tier=matched.metadata.get("source_tier") if matched else None,
             ))
 
         return citations
@@ -167,6 +168,7 @@ class ResponseParser:
                 chunk_id=result.chunk_id,
                 relevance_score=result.score,
                 excerpt=result.content[:150],
+                source_tier=result.metadata.get("source_tier"),
             ))
 
         log.info("fallback_citations_generated", count=len(citations))

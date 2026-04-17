@@ -16,6 +16,8 @@ from core.ingest.chunker import SemanticChunker
 from core.ingest.detector import detect_file_type
 from core.ingest.embedder import Embedder
 from core.ingest.parsers.base import BaseParser
+from core.ingest.parsers.base import ExtractedImage, PageContent, ParseResult
+from core.ingest.translator import Translator
 from core.logging import get_logger
 from core.models.document import DocumentMetadata, DocumentStatus, DocumentType, SourceTier
 from core.vector_store.chroma_client import ChromaVectorStore
@@ -48,11 +50,13 @@ class IngestionPipeline:
         vector_store: ChromaVectorStore,
         embedder: Embedder,
         settings: Settings,
+        translator: Translator | None = None,
     ) -> None:
         self._db = db
         self._vector_store = vector_store
         self._embedder = embedder
         self._settings = settings
+        self._translator = translator
         self._doc_repo = DocumentRepository()
         self._chunker = SemanticChunker(
             chunk_size=settings.chunk_size,
@@ -142,6 +146,7 @@ class IngestionPipeline:
 
             log.info("parsing_document", document_id=str(doc.id), type=doc_type.value)
             parse_result = parser.parse(filepath)
+            parse_result = self._translate_if_needed(parse_result)
 
             if not parse_result.text_content.strip() and not parse_result.images:
                 log.warning("empty_parse_result", document_id=str(doc.id))
@@ -246,6 +251,107 @@ class IngestionPipeline:
             conn.commit()
 
         return self._doc_repo.get_by_id(conn, doc.id) or doc
+
+    def _translate_if_needed(self, parse_result: ParseResult) -> ParseResult:
+        """Translate non-English content for indexing while preserving originals."""
+        if self._translator is None or not parse_result.text_content.strip():
+            return parse_result
+
+        sample = parse_result.text_content[:1000]
+        if self._translator.is_english(sample):
+            metadata = dict(parse_result.metadata)
+            metadata.setdefault("original_language", "English")
+            metadata.setdefault("translation_applied", False)
+            return parse_result.model_copy(update={"metadata": metadata})
+
+        source_language = self._translator.detect_language(sample)
+        if source_language.lower() in {"unknown", "english"}:
+            metadata = dict(parse_result.metadata)
+            metadata.setdefault("original_language", source_language)
+            metadata.setdefault("translation_applied", False)
+            return parse_result.model_copy(update={"metadata": metadata})
+
+        warnings = list(parse_result.warnings)
+        metadata = dict(parse_result.metadata)
+        metadata["original_language"] = source_language
+        metadata["translation_applied"] = True
+
+        translated_pages = [
+            self._translate_page(page, source_language)
+            for page in parse_result.pages
+        ]
+        translated_images = [
+            self._translate_image(image, source_language)
+            for image in parse_result.images
+        ]
+
+        if translated_pages:
+            text_content = "\n\n".join(page.text for page in translated_pages if page.text.strip())
+        else:
+            translation = self._translator.translate_to_english(
+                parse_result.text_content, source_language,
+            )
+            metadata["translation_confidence"] = translation.confidence
+            text_content = self._compose_bilingual_text(
+                parse_result.text_content,
+                translation.translated_text,
+                source_language,
+            )
+            if translation.confidence == 0.0:
+                warnings.append(
+                    f"Translation to English failed for {source_language}; indexed original text only.",
+                )
+
+        return parse_result.model_copy(update={
+            "text_content": text_content,
+            "pages": translated_pages,
+            "images": translated_images,
+            "metadata": metadata,
+            "warnings": warnings,
+        })
+
+    def _translate_page(self, page: PageContent, source_language: str) -> PageContent:
+        """Translate a page while preserving the original text for provenance."""
+        if not page.text.strip():
+            return page
+
+        translation = self._translator.translate_to_english(page.text, source_language)
+        return page.model_copy(update={
+            "text": self._compose_bilingual_text(
+                page.text,
+                translation.translated_text,
+                source_language,
+            ),
+        })
+
+    def _translate_image(self, image: ExtractedImage, source_language: str) -> ExtractedImage:
+        """Translate OCR text while keeping the original OCR content."""
+        if not image.ocr_text or not image.ocr_text.strip():
+            return image
+
+        translation = self._translator.translate_to_english(image.ocr_text, source_language)
+        return image.model_copy(update={
+            "ocr_text": self._compose_bilingual_text(
+                image.ocr_text,
+                translation.translated_text,
+                source_language,
+            ),
+        })
+
+    @staticmethod
+    def _compose_bilingual_text(
+        original_text: str,
+        translated_text: str,
+        source_language: str,
+    ) -> str:
+        """Build indexable bilingual text preserving original and English translation."""
+        translated = translated_text.strip() or original_text.strip()
+        original = original_text.strip()
+        return (
+            f"[Original language: {source_language}]\n"
+            f"[Original text]\n{original}\n\n"
+            f"[English translation]\n{translated}"
+        )
 
     def ingest_directory(
         self,

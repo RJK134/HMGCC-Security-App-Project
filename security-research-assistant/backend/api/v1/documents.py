@@ -14,6 +14,7 @@ from core.database.repositories.document_repo import DocumentRepository
 from core.exceptions import DocumentProcessingError, ProjectNotFoundError
 from core.ingest.embedder import Embedder
 from core.ingest.pipeline import IngestionPipeline
+from core.ingest.translator import Translator
 from core.logging import get_logger
 from core.models.document import DocumentMetadata, DocumentStatus, SourceTier
 from core.rag.llm_client import OllamaClient
@@ -53,7 +54,8 @@ def _get_pipeline(
     settings: Settings,
 ) -> IngestionPipeline:
     embedder = Embedder(ollama)
-    return IngestionPipeline(db, vector_store, embedder, settings)
+    translator = Translator(ollama)
+    return IngestionPipeline(db, vector_store, embedder, settings, translator=translator)
 
 
 # --- Endpoints ---

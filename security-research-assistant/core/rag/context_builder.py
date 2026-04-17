@@ -36,8 +36,9 @@ class ContextBuilder:
         max_tokens: Total token budget for the assembled prompt.
     """
 
-    def __init__(self, max_tokens: int = 4096) -> None:
+    def __init__(self, max_tokens: int = 4096, system_prompt: str = SYSTEM_PROMPT) -> None:
         self._max_tokens = max_tokens
+        self._system_prompt = system_prompt
 
     def build_context(
         self,
@@ -58,7 +59,7 @@ class ContextBuilder:
             Tuple of (system_prompt, user_prompt).
         """
         # Token budget allocation
-        system_tokens = _estimate_tokens(SYSTEM_PROMPT)
+        system_tokens = _estimate_tokens(self._system_prompt)
         question_tokens = _estimate_tokens(query) + 30  # overhead
         summary_tokens = 0
         facts_tokens = 0
@@ -123,4 +124,4 @@ class ContextBuilder:
             total_available=len(results),
             estimated_tokens=self._max_tokens - remaining,
         )
-        return SYSTEM_PROMPT, user_prompt
+        return self._system_prompt, user_prompt

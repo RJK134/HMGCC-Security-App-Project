@@ -73,3 +73,9 @@ class TestContextBuilder:
         ]
         _, user = builder.build_context("Q?", results)
         assert user.index("FIRST CHUNK") < user.index("SECOND CHUNK")
+
+    def test_custom_system_prompt_supported(self) -> None:
+        """Builder should return a supplied system prompt override."""
+        builder = ContextBuilder(max_tokens=4096, system_prompt="Custom prompt.")
+        system, _ = builder.build_context("What is the voltage?", [])
+        assert system == "Custom prompt."

@@ -90,7 +90,12 @@ class ReportGenerator:
             sections.append(ReportSection(
                 heading=heading,
                 content=content,
-                confidence_note=self._confidence_note(heading, section_data),
+                confidence_note=self._confidence_note(
+                    heading,
+                    section_data,
+                    content,
+                    data.get("_known_files", set()),
+                ),
             ))
 
         # Add custom sections
@@ -287,11 +292,37 @@ class ReportGenerator:
 
         return _CITATION_PATTERN.sub(check_citation, text)
 
-    def _confidence_note(self, heading: str, data: str) -> str | None:
+    def _confidence_note(
+        self,
+        heading: str,
+        data: str,
+        content: str,
+        known_files: set[str],
+    ) -> str | None:
         """Generate a confidence note for a section based on data availability."""
         if not data or data == "No data available." or len(data) < 50:
             return "Low confidence: insufficient source data for this section."
+        if self._requires_analyst_review(content, known_files):
+            return (
+                "Analyst review required: this section does not retain any verifiable "
+                "source citations after validation."
+            )
         return None
+
+    def _requires_analyst_review(self, content: str, known_files: set[str]) -> bool:
+        """Flag sections that make grounded-looking claims without verifiable citations."""
+        if not content or not known_files:
+            return False
+
+        lowered = content.lower()
+        if "data not available" in lowered or "section generation failed" in lowered:
+            return False
+
+        if _CITATION_PATTERN.search(content):
+            return False
+
+        sentence_count = len([s for s in re.split(r"(?<=[.!?])\s+", content.strip()) if s.strip()])
+        return sentence_count >= 2
 
     def _store_report(self, report: Report) -> None:
         """Store a generated report in SQLite."""

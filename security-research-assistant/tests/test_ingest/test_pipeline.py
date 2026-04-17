@@ -108,3 +108,37 @@ class TestIngestionPipeline:
             sample_txt, project_id, source_tier=SourceTier.TIER_1_MANUFACTURER,
         )
         assert doc.source_tier == SourceTier.TIER_1_MANUFACTURER
+
+    def test_non_english_text_is_translated_for_indexing(self, pipeline_env, tmp_path: Path) -> None:
+        """Non-English text should be augmented with English translation before indexing."""
+        pipeline, db, _, project_id = pipeline_env
+
+        class _FakeTranslator:
+            def is_english(self, text: str) -> bool:
+                return False
+
+            def detect_language(self, text: str) -> str:
+                return "Spanish"
+
+            def translate_to_english(self, text: str, source_language: str):
+                class _Translation:
+                    translated_text = "The control board uses an SPI bus."
+                    confidence = 0.91
+                return _Translation()
+
+        pipeline._translator = _FakeTranslator()  # type: ignore[assignment]
+
+        source = tmp_path / "spanish.txt"
+        source.write_text("La placa de control utiliza un bus SPI.", encoding="utf-8")
+
+        doc = pipeline.ingest_file(source, project_id)
+        assert doc.status == DocumentStatus.INDEXED
+
+        conn = db.get_connection()
+        row = conn.execute(
+            "SELECT content FROM chunks WHERE document_id = ? ORDER BY chunk_index LIMIT 1",
+            (str(doc.id),),
+        ).fetchone()
+        assert row is not None
+        assert "English translation" in row["content"]
+        assert "The control board uses an SPI bus." in row["content"]

@@ -42,6 +42,7 @@ export interface Citation {
   chunk_id: string;
   relevance_score: number;
   excerpt: string;
+  source_tier?: SourceTier | null;
 }
 
 export interface Message {

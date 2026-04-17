@@ -9,6 +9,8 @@ interface StreamState {
   stage: "idle" | "searching" | "generating" | "complete";
   citations: Citation[];
   confidence: ConfidenceResult | null;
+  flaggedClaims: string[];
+  alternatives: string[];
   conversationId: string | null;
   error: string | null;
 }
@@ -20,6 +22,8 @@ export function useStreamingQuery() {
     stage: "idle",
     citations: [],
     confidence: null,
+    flaggedClaims: [],
+    alternatives: [],
     conversationId: null,
     error: null,
   });
@@ -30,12 +34,14 @@ export function useStreamingQuery() {
     setState({
       streamedText: "",
       isStreaming: true,
-      stage: "searching",
-      citations: [],
-      confidence: null,
-      conversationId: null,
-      error: null,
-    });
+        stage: "searching",
+        citations: [],
+        confidence: null,
+        flaggedClaims: [],
+        alternatives: [],
+        conversationId: null,
+        error: null,
+      });
 
     abortRef.current = new AbortController();
 
@@ -83,13 +89,32 @@ export function useStreamingQuery() {
               } else if ("citations" in parsed || "confidence" in parsed || "conversation_id" in parsed) {
                 // Stream complete (done event) — keep streamedText so the message remains
                 // visible until TanStack Query refetch replaces it
+                const flaggedClaims = Array.isArray(parsed.flagged_claims)
+                  ? parsed.flagged_claims.map((item: { claim_text?: string } | string) =>
+                    typeof item === "string" ? item : (item.claim_text ?? ""),
+                  ).filter(Boolean)
+                  : [];
                 setState((prev) => ({
                   ...prev,
                   stage: "complete",
                   citations: parsed.citations || [],
                   confidence: parsed.confidence || null,
+                  flaggedClaims,
+                  alternatives: parsed.confidence?.alternative_interpretations || [],
                   conversationId: parsed.conversation_id || null,
                   isStreaming: false,
+                }));
+              } else if ("hallucination_report" in parsed || "cross_reference_report" in parsed) {
+                const flaggedClaims = Array.isArray(parsed.hallucination_report?.flagged_items)
+                  ? parsed.hallucination_report.flagged_items.map(
+                    (item: { claim_text?: string }) => item.claim_text ?? "",
+                  ).filter(Boolean)
+                  : [];
+                setState((prev) => ({
+                  ...prev,
+                  confidence: parsed.confidence || prev.confidence,
+                  flaggedClaims,
+                  alternatives: parsed.confidence?.alternative_interpretations || prev.alternatives,
                 }));
               } else if (parsed.error) {
                 setState((prev) => ({ ...prev, error: parsed.error, isStreaming: false, stage: "idle" }));
@@ -127,12 +152,14 @@ export function useStreamingQuery() {
     setState({
       streamedText: "",
       isStreaming: false,
-      stage: "idle",
-      citations: [],
-      confidence: null,
-      conversationId: null,
-      error: null,
-    });
+        stage: "idle",
+        citations: [],
+        confidence: null,
+        flaggedClaims: [],
+        alternatives: [],
+        conversationId: null,
+        error: null,
+      });
   }, []);
 
   return { ...state, sendQuery, cancel, reset };

@@ -25,6 +25,7 @@ class TestResponseParser:
         assert len(parsed.citations) == 1
         assert parsed.citations[0].document_name == "datasheet.pdf"
         assert parsed.citations[0].page_number == 3
+        assert parsed.citations[0].source_tier is None
 
     def test_citation_without_page(self) -> None:
         """Parser should handle citations without page numbers."""
@@ -81,3 +82,23 @@ class TestResponseParser:
         response = "The answer is 42."
         parsed = parser.parse_response(response, [])
         assert parsed.answer_text == response
+
+    def test_source_tier_propagated(self) -> None:
+        """Matched search-result metadata should flow into citations."""
+        parser = ResponseParser()
+        results = [
+            SearchResult(
+                chunk_id="c1",
+                content="Some content",
+                score=0.9,
+                metadata={
+                    "document_id": "00000000-0000-0000-0000-000000000001",
+                    "filename": "datasheet.pdf",
+                    "page_number": 3,
+                    "source_tier": "tier_1_manufacturer",
+                },
+            )
+        ]
+        response = "The voltage is 3.3V [Source: datasheet.pdf, Page 3]."
+        parsed = parser.parse_response(response, results)
+        assert parsed.citations[0].source_tier == "tier_1_manufacturer"

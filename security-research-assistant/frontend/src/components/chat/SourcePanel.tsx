@@ -3,7 +3,7 @@
 import { ChevronDown, ChevronUp, ExternalLink, X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Citation, SourceTier } from "../../types";
+import type { Citation } from "../../types";
 import { TIER_LABELS } from "../../types";
 
 const TIER_DOT: Record<string, string> = {
@@ -87,6 +87,16 @@ function SourceCard({
             {citation.page_number != null && <span>Page {citation.page_number}</span>}
             <span>{(citation.relevance_score * 100).toFixed(0)}% match</span>
           </div>
+          {citation.source_tier && (
+            <div className="flex items-center gap-1 mt-1 text-[10px] text-sra-muted">
+              <span
+                className={`inline-block w-2 h-2 rounded-full ${
+                  TIER_DOT[citation.source_tier] ?? "bg-gray-400"
+                }`}
+              />
+              <span>{TIER_LABELS[citation.source_tier]}</span>
+            </div>
+          )}
         </div>
         <button
           onClick={onViewInLibrary}
