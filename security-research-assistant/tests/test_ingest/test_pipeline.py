@@ -111,7 +111,7 @@ class TestIngestionPipeline:
 
     def test_non_english_text_is_translated_for_indexing(self, pipeline_env, tmp_path: Path) -> None:
         """Non-English text should be augmented with English translation before indexing."""
-        pipeline, db, _, project_id = pipeline_env
+        _, db, vs, project_id = pipeline_env
 
         class _FakeTranslator:
             def is_english(self, text: str) -> bool:
@@ -121,16 +121,31 @@ class TestIngestionPipeline:
                 return "Spanish"
 
             def translate_to_english(self, text: str, source_language: str):
-                class _Translation:
-                    translated_text = "The control board uses an SPI bus."
-                    confidence = 0.91
-                return _Translation()
+                class _MockTranslation:
+                    def __init__(self) -> None:
+                        self.translated_text = "The control board uses an SPI bus."
+                        self.confidence = 0.91
 
-        pipeline._translator = _FakeTranslator()  # type: ignore[assignment]
+                return _MockTranslation()
 
         source = tmp_path / "spanish.txt"
         source.write_text("La placa de control utiliza un bus SPI.", encoding="utf-8")
 
+        embedder = MagicMock()
+        embedder.embed_chunks.side_effect = lambda chunks, **kw: [[0.1] * 768 for _ in chunks]
+        settings = Settings(
+            chroma_path=str(tmp_path / "chroma"),
+            sqlite_path=str(tmp_path / "test.db"),
+            chunk_size=200,
+            chunk_overlap=20,
+        )
+        pipeline = IngestionPipeline(
+            db,
+            vs,
+            embedder,
+            settings,
+            translator=_FakeTranslator(),  # type: ignore[arg-type]
+        )
         doc = pipeline.ingest_file(source, project_id)
         assert doc.status == DocumentStatus.INDEXED
 
@@ -142,3 +157,41 @@ class TestIngestionPipeline:
         assert row is not None
         assert "English translation" in row["content"]
         assert "The control board uses an SPI bus." in row["content"]
+
+    def test_unknown_language_skips_translation(self, pipeline_env, tmp_path: Path) -> None:
+        """Unknown language detection should preserve the original text without translation."""
+        _, db, vs, project_id = pipeline_env
+
+        class _UnknownTranslator:
+            def is_english(self, text: str) -> bool:
+                return False
+
+            def detect_language(self, text: str) -> str:
+                return "Unknown"
+
+            def translate_to_english(self, text: str, source_language: str):
+                raise AssertionError("Translation should not be attempted for unknown language")
+
+        embedder = MagicMock()
+        embedder.embed_chunks.side_effect = lambda chunks, **kw: [[0.1] * 768 for _ in chunks]
+        settings = Settings(
+            chroma_path=str(tmp_path / "chroma"),
+            sqlite_path=str(tmp_path / "test.db"),
+            chunk_size=200,
+            chunk_overlap=20,
+        )
+        pipeline = IngestionPipeline(
+            db,
+            vs,
+            embedder,
+            settings,
+            translator=_UnknownTranslator(),  # type: ignore[arg-type]
+        )
+
+        source = tmp_path / "mystery.txt"
+        source.write_text("???", encoding="utf-8")
+
+        doc = pipeline.ingest_file(source, project_id)
+        assert doc.status == DocumentStatus.INDEXED
+        assert doc.metadata["original_language"] == "Unknown"
+        assert doc.metadata["translation_applied"] is False

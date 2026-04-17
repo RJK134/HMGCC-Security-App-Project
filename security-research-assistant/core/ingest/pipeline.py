@@ -15,8 +15,7 @@ from core.exceptions import DocumentProcessingError
 from core.ingest.chunker import SemanticChunker
 from core.ingest.detector import detect_file_type
 from core.ingest.embedder import Embedder
-from core.ingest.parsers.base import BaseParser
-from core.ingest.parsers.base import ExtractedImage, PageContent, ParseResult
+from core.ingest.parsers.base import BaseParser, ExtractedImage, PageContent, ParseResult
 from core.ingest.translator import Translator
 from core.logging import get_logger
 from core.models.document import DocumentMetadata, DocumentStatus, DocumentType, SourceTier
@@ -159,13 +158,14 @@ class IngestionPipeline:
                     (page_count, str(doc.id)),
                 )
 
-            # Store parser warnings in metadata
-            if parse_result.warnings:
+            # Store parser/translation metadata and warnings
+            if parse_result.metadata or parse_result.warnings:
                 meta = json.loads(
                     conn.execute(
                         "SELECT metadata_json FROM documents WHERE id = ?", (str(doc.id),)
                     ).fetchone()[0] or "{}"
                 )
+                meta.update(parse_result.metadata)
                 meta["parser_warnings"] = parse_result.warnings
                 conn.execute(
                     "UPDATE documents SET metadata_json = ? WHERE id = ?",
@@ -253,7 +253,12 @@ class IngestionPipeline:
         return self._doc_repo.get_by_id(conn, doc.id) or doc
 
     def _translate_if_needed(self, parse_result: ParseResult) -> ParseResult:
-        """Translate non-English content for indexing while preserving originals."""
+        """Translate non-English content for indexing while preserving originals.
+
+        When translation is unavailable or low confidence, the original text is still
+        indexed, but the generated bilingual wrapper explicitly marks that no usable
+        English translation was produced.
+        """
         if self._translator is None or not parse_result.text_content.strip():
             return parse_result
 
@@ -288,16 +293,18 @@ class IngestionPipeline:
         if translated_pages:
             text_content = "\n\n".join(page.text for page in translated_pages if page.text.strip())
         else:
-            translation = self._translator.translate_to_english(
-                parse_result.text_content, source_language,
-            )
-            metadata["translation_confidence"] = translation.confidence
-            text_content = self._compose_bilingual_text(
+            translated_text, confidence = self._safe_translate_to_english(
                 parse_result.text_content,
-                translation.translated_text,
                 source_language,
             )
-            if translation.confidence == 0.0:
+            metadata["translation_confidence"] = confidence
+            text_content = self._compose_bilingual_text(
+                parse_result.text_content,
+                translated_text,
+                source_language,
+                translation_available=confidence > 0.0,
+            )
+            if confidence == 0.0:
                 warnings.append(
                     f"Translation to English failed for {source_language}; indexed original text only.",
                 )
@@ -315,12 +322,13 @@ class IngestionPipeline:
         if not page.text.strip():
             return page
 
-        translation = self._translator.translate_to_english(page.text, source_language)
+        translated_text, confidence = self._safe_translate_to_english(page.text, source_language)
         return page.model_copy(update={
             "text": self._compose_bilingual_text(
                 page.text,
-                translation.translated_text,
+                translated_text,
                 source_language,
+                translation_available=confidence > 0.0,
             ),
         })
 
@@ -329,28 +337,57 @@ class IngestionPipeline:
         if not image.ocr_text or not image.ocr_text.strip():
             return image
 
-        translation = self._translator.translate_to_english(image.ocr_text, source_language)
+        translated_text, confidence = self._safe_translate_to_english(
+            image.ocr_text,
+            source_language,
+        )
         return image.model_copy(update={
             "ocr_text": self._compose_bilingual_text(
                 image.ocr_text,
-                translation.translated_text,
+                translated_text,
                 source_language,
+                translation_available=confidence > 0.0,
             ),
         })
+
+    def _safe_translate_to_english(
+        self,
+        text: str,
+        source_language: str,
+    ) -> tuple[str, float]:
+        """Translate text without letting translator failures abort ingestion."""
+        try:
+            translation = self._translator.translate_to_english(text, source_language)
+            return translation.translated_text.strip(), translation.confidence
+        except Exception as exc:
+            log.warning(
+                "translation_failed_during_ingest",
+                source_language=source_language,
+                error=str(exc),
+            )
+            return "", 0.0
 
     @staticmethod
     def _compose_bilingual_text(
         original_text: str,
         translated_text: str,
         source_language: str,
+        translation_available: bool = True,
     ) -> str:
         """Build indexable bilingual text preserving original and English translation."""
-        translated = translated_text.strip() or original_text.strip()
+        translated = translated_text.strip()
+        translation_header = "[English translation]"
+        if not translation_available:
+            translation_header = "[English translation unavailable — indexing original text]"
+            translated = "No usable English translation was produced; review the original text above."
+        elif not translated:
+            translation_header = "[English translation unavailable — empty translation output]"
+            translated = "The translator returned no English text; review the original text above."
         original = original_text.strip()
         return (
             f"[Original language: {source_language}]\n"
             f"[Original text]\n{original}\n\n"
-            f"[English translation]\n{translated}"
+            f"{translation_header}\n{translated}"
         )
 
     def ingest_directory(

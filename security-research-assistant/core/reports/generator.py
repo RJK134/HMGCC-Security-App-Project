@@ -39,6 +39,7 @@ Keep to approximately {target_words} words."""
 _CITATION_PATTERN = re.compile(
     r"\[Source:\s*([^,\]]+?)(?:,\s*Page\s*\d+)?\s*\]", re.IGNORECASE,
 )
+_MIN_WORDS_FOR_ANALYST_REVIEW = 12
 
 
 class ReportGenerator:
@@ -321,8 +322,7 @@ class ReportGenerator:
         if _CITATION_PATTERN.search(content):
             return False
 
-        sentence_count = len([s for s in re.split(r"(?<=[.!?])\s+", content.strip()) if s.strip()])
-        return sentence_count >= 2
+        return len(content.split()) >= _MIN_WORDS_FOR_ANALYST_REVIEW
 
     def _store_report(self, report: Report) -> None:
         """Store a generated report in SQLite."""

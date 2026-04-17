@@ -15,6 +15,18 @@ interface StreamState {
   error: string | null;
 }
 
+function extractFlaggedClaims(
+  payload: { claim_text?: string }[] | string[] | undefined,
+): string[] {
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+
+  return payload
+    .map((item) => (typeof item === "string" ? item : (item.claim_text ?? "")))
+    .filter(Boolean);
+}
+
 export function useStreamingQuery() {
   const [state, setState] = useState<StreamState>({
     streamedText: "",
@@ -89,11 +101,7 @@ export function useStreamingQuery() {
               } else if ("citations" in parsed || "confidence" in parsed || "conversation_id" in parsed) {
                 // Stream complete (done event) — keep streamedText so the message remains
                 // visible until TanStack Query refetch replaces it
-                const flaggedClaims = Array.isArray(parsed.flagged_claims)
-                  ? parsed.flagged_claims.map((item: { claim_text?: string } | string) =>
-                    typeof item === "string" ? item : (item.claim_text ?? ""),
-                  ).filter(Boolean)
-                  : [];
+                const flaggedClaims = extractFlaggedClaims(parsed.flagged_claims);
                 setState((prev) => ({
                   ...prev,
                   stage: "complete",
@@ -105,11 +113,7 @@ export function useStreamingQuery() {
                   isStreaming: false,
                 }));
               } else if ("hallucination_report" in parsed || "cross_reference_report" in parsed) {
-                const flaggedClaims = Array.isArray(parsed.hallucination_report?.flagged_items)
-                  ? parsed.hallucination_report.flagged_items.map(
-                    (item: { claim_text?: string }) => item.claim_text ?? "",
-                  ).filter(Boolean)
-                  : [];
+                const flaggedClaims = extractFlaggedClaims(parsed.hallucination_report?.flagged_items);
                 setState((prev) => ({
                   ...prev,
                   confidence: parsed.confidence || prev.confidence,
