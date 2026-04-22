@@ -93,3 +93,17 @@ class TestReportGenerator:
         report = gen.generate_report(project_id, ReportType.PRODUCT_OVERVIEW)
         assert "generation_time_seconds" in report.metadata
         assert "llm_calls" in report.metadata
+
+    def test_analyst_review_note_when_no_valid_citations(self, report_db) -> None:
+        db, project_id = report_db
+        mock_llm = MagicMock()
+        mock_llm.generate.return_value = (
+            "This section makes several technical claims about the product. "
+            "It references architecture and interfaces in narrative form."
+        )
+        gen = ReportGenerator(db, mock_llm)
+        report = gen.generate_report(project_id, ReportType.PRODUCT_OVERVIEW)
+        assert any(
+            section.confidence_note and "Analyst review required" in section.confidence_note
+            for section in report.sections
+        )

@@ -24,6 +24,7 @@ class Citation(BaseModel):
     chunk_id: str
     relevance_score: float
     excerpt: str
+    source_tier: str | None = None
 
 
 class Message(BaseModel):

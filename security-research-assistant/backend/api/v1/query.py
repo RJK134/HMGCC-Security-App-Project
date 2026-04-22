@@ -13,11 +13,12 @@ from core.conversation.memory import MemoryManager
 from core.conversation.summariser import ConversationSummariser
 from core.database.connection import DatabaseManager
 from core.ingest.embedder import Embedder
+from core.profile.adapter import PromptAdapter
 from core.profile.tracker import PreferenceTracker
 from core.logging import get_logger
 from core.models.conversation import Citation, MessageRole
 from core.models.query import QueryRequest, QueryResponse
-from core.rag.context_builder import ContextBuilder
+from core.rag.context_builder import ContextBuilder, SYSTEM_PROMPT
 from core.rag.engine import RAGEngine
 from core.rag.keyword_search import KeywordSearcher
 from core.rag.llm_client import OllamaClient
@@ -35,6 +36,7 @@ def _build_engine(
     vector_store: ChromaVectorStore,
     ollama: OllamaClient,
     settings: Settings,
+    system_prompt: str | None = None,
 ) -> RAGEngine:
     """Assemble the RAG engine from its components."""
     embedder = Embedder(ollama)
@@ -42,7 +44,10 @@ def _build_engine(
         vector_searcher=VectorSearcher(vector_store, embedder),
         keyword_searcher=KeywordSearcher(db),
         reranker=Reranker(ollama),
-        context_builder=ContextBuilder(max_tokens=settings.max_context_tokens),
+        context_builder=ContextBuilder(
+            max_tokens=settings.max_context_tokens,
+            system_prompt=system_prompt or SYSTEM_PROMPT,
+        ),
         ollama_client=ollama,
         response_parser=ResponseParser(),
         top_k_retrieval=settings.top_k * 2,
@@ -99,7 +104,11 @@ def query_endpoint(
     When stream=true (default), returns SSE events.
     When stream=false, returns the complete QueryResponse as JSON.
     """
-    engine = _build_engine(db, vector_store, ollama, settings)
+    tracker = PreferenceTracker(db)
+    prompt_adapter = PromptAdapter(tracker)
+    profile = tracker.get_profile()
+    adapted_system_prompt = prompt_adapter.adapt_system_prompt(SYSTEM_PROMPT, profile)
+    engine = _build_engine(db, vector_store, ollama, settings, adapted_system_prompt)
     conv_manager = _get_conversation_manager(db, ollama)
 
     summary, pinned_facts, conversation_id = _load_conversation_context(conv_manager, request)
@@ -119,9 +128,11 @@ def query_endpoint(
 
         # Track query for user profiling
         try:
-            PreferenceTracker(db).track_query(request.question, response, request.project_id)
+            tracker.track_query(request.question, response, request.project_id)
         except Exception:
             pass  # Don't fail the query if tracking fails
+
+        response.suggested_queries = prompt_adapter.suggest_related_queries(profile, response)
 
         result = response.model_dump(mode="json")
         result["conversation_id"] = str(conversation_id)
@@ -171,7 +182,11 @@ def query_simple(
     settings: Settings = Depends(get_app_settings),
 ) -> dict:
     """Non-streaming convenience endpoint returning the full response as JSON."""
-    engine = _build_engine(db, vector_store, ollama, settings)
+    tracker = PreferenceTracker(db)
+    prompt_adapter = PromptAdapter(tracker)
+    profile = tracker.get_profile()
+    adapted_system_prompt = prompt_adapter.adapt_system_prompt(SYSTEM_PROMPT, profile)
+    engine = _build_engine(db, vector_store, ollama, settings, adapted_system_prompt)
     conv_manager = _get_conversation_manager(db, ollama)
 
     summary, pinned_facts, conversation_id = _load_conversation_context(conv_manager, request)
@@ -187,9 +202,11 @@ def query_simple(
 
     # Track query for user profiling
     try:
-        PreferenceTracker(db).track_query(request.question, response, request.project_id)
+        tracker.track_query(request.question, response, request.project_id)
     except Exception:
         pass
+
+    response.suggested_queries = prompt_adapter.suggest_related_queries(profile, response)
 
     result = response.model_dump(mode="json")
     result["conversation_id"] = str(conversation_id)

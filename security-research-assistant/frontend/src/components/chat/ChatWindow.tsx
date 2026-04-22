@@ -26,6 +26,7 @@ export function ChatWindow({ messages, onCitationClick, onStreamCitations, proje
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [streamConfidence, setStreamConfidence] = useState<ConfidenceResult | null>(null);
   const [streamFlagged, setStreamFlagged] = useState<string[]>([]);
+  const [streamAlternatives, setStreamAlternatives] = useState<string[]>([]);
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
 
   const queryClient = useQueryClient();
@@ -37,6 +38,8 @@ export function ChatWindow({ messages, onCitationClick, onStreamCitations, proje
     isStreaming,
     citations,
     confidence,
+    flaggedClaims,
+    alternatives,
     error,
     conversationId: newConvId,
     sendQuery,
@@ -64,6 +67,14 @@ export function ChatWindow({ messages, onCitationClick, onStreamCitations, proje
   useEffect(() => {
     if (confidence) setStreamConfidence(confidence);
   }, [confidence]);
+
+  useEffect(() => {
+    setStreamFlagged(flaggedClaims);
+  }, [flaggedClaims]);
+
+  useEffect(() => {
+    setStreamAlternatives(alternatives);
+  }, [alternatives]);
 
   // Report streaming citations to parent for source panel
   useEffect(() => {
@@ -114,6 +125,7 @@ export function ChatWindow({ messages, onCitationClick, onStreamCitations, proje
       setLocalMessages((prev) => [...prev, userMsg]);
       setStreamConfidence(null);
       setStreamFlagged([]);
+      setStreamAlternatives([]);
 
       sendQuery({
         question: text,
@@ -213,6 +225,7 @@ export function ChatWindow({ messages, onCitationClick, onStreamCitations, proje
                     : null
               }
               flaggedClaims={isStreamMsg ? streamFlagged : undefined}
+              alternatives={isStreamMsg ? streamAlternatives : undefined}
               onCitationClick={onCitationClick}
               onPin={msg.role === "assistant" ? (content, cits) => handlePin(msg.id, content, cits) : undefined}
               isPinned={pinnedIds.has(msg.id)}
